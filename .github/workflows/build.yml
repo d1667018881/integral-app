@@ -56,14 +56,12 @@ jobs:
           echo "Keystore committed to repository"
         fi
 
-    - name: Read current version
+    - name: Increment version for this build
       id: version
       run: |
         BUILD_FILE="app/build.gradle.kts"
         OLD_CODE=$(grep -oP 'versionCode\s*=\s*\K\d+' "$BUILD_FILE")
         OLD_NAME=$(grep -oP 'versionName\s*=\s*"\K[0-9.]+' "$BUILD_FILE")
-        echo "Current versionCode: $OLD_CODE"
-        echo "Current versionName: $OLD_NAME"
         
         # Calculate next version
         NEW_CODE=$((OLD_CODE + 1))
@@ -73,6 +71,12 @@ jobs:
         fi
         MINOR=$((NEW_CODE - MAJOR * 10))
         NEW_VERSION="${MAJOR}.${MINOR}"
+        
+        echo "Building version: $NEW_VERSION (code: $NEW_CODE)"
+        
+        # Increment version in local files (for this build only)
+        sed -i "s/versionCode = $OLD_CODE/versionCode = $NEW_CODE/" "$BUILD_FILE"
+        sed -i "s/versionName = \"$OLD_NAME\"/versionName = \"$NEW_VERSION\"/" "$BUILD_FILE"
         
         echo "next_version_code=$NEW_CODE" >> $GITHUB_OUTPUT
         echo "next_version_name=$NEW_VERSION" >> $GITHUB_OUTPUT
@@ -90,24 +94,18 @@ jobs:
         path: app/build/outputs/apk/debug/app-debug.apk
         retention-days: 7
 
-    - name: Commit version increment (after successful build)
+    - name: Commit version increment to repo (after successful build)
       if: success()
       run: |
         git config user.name "GitHub Actions"
         git config user.email "actions@github.com"
         
-        BUILD_FILE="app/build.gradle.kts"
-        NEW_CODE="${{ steps.version.outputs.next_version_code }}"
         NEW_VERSION="${{ steps.version.outputs.next_version_name }}"
         
-        # Update versionCode
-        sed -i "s/versionCode = $((NEW_CODE - 1))/versionCode = $NEW_CODE/" "$BUILD_FILE"
-        
-        # Update versionName
-        sed -i "s/versionName = \"[0-9]*\.[0-9]*\"/versionName = \"$NEW_VERSION\"/" "$BUILD_FILE"
-        
+        # The version was already incremented in the local files
+        # Now commit it to the repository
         # [skip ci] prevents triggering another workflow
-        git add "$BUILD_FILE"
+        git add app/build.gradle.kts
         git commit -m "Bump version to $NEW_VERSION [skip ci]"
         git push origin main || true
-        echo "Version updated to $NEW_VERSION"
+        echo "Version $NEW_VERSION committed to repository"
