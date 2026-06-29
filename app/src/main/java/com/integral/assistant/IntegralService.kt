@@ -1,0 +1,151 @@
+package com.integral.assistant
+
+import android.app.Notification
+import android.app.NotificationChannel
+import android.app.NotificationManager
+import android.app.PendingIntent
+import android.app.Service
+import android.content.Context
+import android.content.Intent
+import android.os.Build
+import android.os.IBinder
+import android.os.PowerManager
+import androidx.core.app.NotificationCompat
+import kotlinx.coroutines.*
+
+/**
+ * 前台服务 - 保持应用在后台运行
+ * 解决 Android 10+ 后台执行限制
+ */
+class IntegralService : Service() {
+
+    companion object {
+        const val CHANNEL_ID = "integral_service_channel"
+        const val NOTIFICATION_ID = 1
+        const val ACTION_START = "ACTION_START"
+        const val ACTION_STOP = "ACTION_STOP"
+        
+        // 静态变量，用于服务与Activity通信
+        var isServiceRunning = false
+        var serviceInstance: IntegralService? = null
+    }
+
+    private var wakeLock: PowerManager.WakeLock? = null
+    private val serviceScope = CoroutineScope(Dispatchers.Main + SupervisorJob())
+    private var currentJob: Job? = null
+
+    override fun onBind(intent: Intent?): IBinder? = null
+
+    override fun onCreate() {
+        super.onCreate()
+        createNotificationChannel()
+        serviceInstance = this
+    }
+
+    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        when (intent?.action) {
+            ACTION_START -> startForegroundService()
+            ACTION_STOP -> stopForegroundService()
+        }
+        return START_STICKY
+    }
+
+    private fun startForegroundService() {
+        // 创建通知
+        val notification = createNotification()
+        
+        // 启动前台服务
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            startForeground(NOTIFICATION_ID, notification, 
+                android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE)
+        } else {
+            startForeground(NOTIFICATION_ID, notification)
+        }
+
+        // 获取唤醒锁，防止CPU休眠
+        val powerManager = getSystemService(Context.POWER_SERVICE) as PowerManager
+        wakeLock = powerManager.newWakeLock(
+            PowerManager.PARTIAL_WAKE_LOCK,
+            "IntegralAssistant::WakeLock"
+        ).apply {
+            setReferenceCounted(false)
+            acquire(24 * 60 * 60 * 1000L) // 最多24小时
+        }
+
+        isServiceRunning = true
+    }
+
+    private fun stopForegroundService() {
+        // 释放唤醒锁
+        wakeLock?.let {
+            if (it.isHeld) it.release()
+        }
+        wakeLock = null
+
+        // 取消任务
+        currentJob?.cancel()
+        currentJob = null
+
+        // 停止服务
+        isServiceRunning = false
+        stopForeground(STOP_FOREGROUND_REMOVE)
+        stopSelf()
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        // 释放资源
+        wakeLock?.let {
+            if (it.isHeld) it.release()
+        }
+        serviceScope.cancel()
+        isServiceRunning = false
+        serviceInstance = null
+    }
+
+    private fun createNotificationChannel() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            val channel = NotificationChannel(
+                CHANNEL_ID,
+                "积分助手服务",
+                NotificationManager.IMPORTANCE_LOW
+            ).apply {
+                description = "积分自动提交后台服务"
+                setShowBadge(false)
+            }
+            
+            val notificationManager = getSystemService(NotificationManager::class.java)
+            notificationManager.createNotificationChannel(channel)
+        }
+    }
+
+    private fun createNotification(): Notification {
+        val pendingIntent = PendingIntent.getActivity(
+            this,
+            0,
+            Intent(this, MainActivity::class.java),
+            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+        )
+
+        return NotificationCompat.Builder(this, CHANNEL_ID)
+            .setContentTitle("积分助手运行中")
+            .setContentText("正在自动提交积分...")
+            .setSmallIcon(android.R.drawable.ic_menu_upload)
+            .setContentIntent(pendingIntent)
+            .setOngoing(true)
+            .setSilent(true)
+            .build()
+    }
+
+    // 供 Activity 调用的方法
+    fun startTask(task: suspend () -> Unit) {
+        currentJob = serviceScope.launch {
+            task()
+        }
+    }
+
+    fun cancelTask() {
+        currentJob?.cancel()
+        currentJob = null
+    }
+}

@@ -1,0 +1,143 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:fillViewport="true">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:padding="16dp">
+
+        <!-- 顶部导航栏 -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:layout_marginBottom="16dp">
+
+            <TextView
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="⚡ 积分助手"
+                android:textSize="22sp"
+                android:textStyle="bold"
+                android:textColor="#4099FF"/>
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btnSettings"
+                android:layout_width="wrap_content"
+                android:layout_height="40dp"
+                android:text="⚙ 设置"
+                android:textSize="14sp"
+                style="@style/Widget.Material3.Button.TonalButton"/>
+        </LinearLayout>
+
+        <!-- 工号输入 -->
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="工号"
+            android:textSize="14sp"
+            android:textColor="#999999"
+            android:layout_marginBottom="8dp"/>
+
+        <com.google.android.material.textfield.TextInputEditText
+            android:id="@+id/inputLoginId"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:hint="请输入工号"
+            android:inputType="number"
+            android:background="@drawable/edittext_background"
+            android:padding="12dp"
+            android:textSize="16sp"
+            android:layout_marginBottom="16dp"/>
+
+        <!-- 目标积分输入 -->
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="目标积分"
+            android:textSize="14sp"
+            android:textColor="#999999"
+            android:layout_marginBottom="8dp"/>
+
+        <com.google.android.material.textfield.TextInputEditText
+            android:id="@+id/inputTargetScore"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:hint="请输入目标积分"
+            android:inputType="number"
+            android:text="100"
+            android:background="@drawable/edittext_background"
+            android:padding="12dp"
+            android:textSize="16sp"
+            android:layout_marginBottom="16dp"/>
+
+        <!-- 操作按钮 -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:layout_marginBottom="16dp">
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btnStart"
+                android:layout_width="0dp"
+                android:layout_height="50dp"
+                android:layout_weight="1"
+                android:layout_marginEnd="8dp"
+                android:text="▶ 开始执行"
+                android:textSize="16sp"
+                app:backgroundTint="#2EC760"/>
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btnStop"
+                android:layout_width="0dp"
+                android:layout_height="50dp"
+                android:layout_weight="1"
+                android:layout_marginStart="8dp"
+                android:text="■ 停止"
+                android:textSize="16sp"
+                android:enabled="false"
+                android:alpha="0.4"
+                app:backgroundTint="#E63F3F"/>
+        </LinearLayout>
+
+        <!-- 状态栏 -->
+        <TextView
+            android:id="@+id/tvStatus"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="⏸ 待命中"
+            android:textSize="14sp"
+            android:textColor="#FFA500"
+            android:layout_marginBottom="16dp"/>
+
+        <!-- 日志区域 -->
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="📋 运行日志"
+            android:textSize="14sp"
+            android:textColor="#999999"
+            android:layout_marginBottom="8dp"/>
+
+        <TextView
+            android:id="@+id/tvLog"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="等待执行..."
+            android:textSize="12sp"
+            android:textColor="#D9D9DE"
+            android:background="@drawable/log_background"
+            android:padding="12dp"
+            android:minHeight="200dp"
+            android:scrollbars="vertical"/>
+
+    </LinearLayout>
+</ScrollView>

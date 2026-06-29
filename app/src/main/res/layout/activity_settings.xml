@@ -1,0 +1,205 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:fillViewport="true">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:padding="16dp">
+
+        <!-- 顶部导航栏 -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:layout_marginBottom="24dp">
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btnBack"
+                android:layout_width="wrap_content"
+                android:layout_height="40dp"
+                android:text="← 返回"
+                android:textSize="14sp"
+                style="@style/Widget.Material3.Button.OutlinedButton"/>
+
+            <TextView
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="⚙ 设置"
+                android:textSize="20sp"
+                android:textStyle="bold"
+                android:layout_marginStart="16dp"/>
+        </LinearLayout>
+
+        <!-- 接口设置 -->
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="🌐 接口设置"
+            android:textSize="16sp"
+            android:textColor="#4099FF"
+            android:textStyle="bold"
+            android:layout_marginBottom="12dp"/>
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="积分提交 URL"
+            android:textSize="13sp"
+            android:textColor="#999999"
+            android:layout_marginBottom="4dp"/>
+
+        <com.google.android.material.textfield.TextInputEditText
+            android:id="@+id/inputSubmitUrl"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:hint="提交 URL"
+            android:background="@drawable/edittext_background"
+            android:padding="12dp"
+            android:textSize="14sp"
+            android:layout_marginBottom="12dp"/>
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="积分查询 URL"
+            android:textSize="13sp"
+            android:textColor="#999999"
+            android:layout_marginBottom="4dp"/>
+
+        <com.google.android.material.textfield.TextInputEditText
+            android:id="@+id/inputQueryUrl"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:hint="查询 URL"
+            android:background="@drawable/edittext_background"
+            android:padding="12dp"
+            android:textSize="14sp"
+            android:layout_marginBottom="16dp"/>
+
+        <!-- 执行设置 -->
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="🔧 执行设置"
+            android:textSize="16sp"
+            android:textColor="#4099FF"
+            android:textStyle="bold"
+            android:layout_marginBottom="12dp"/>
+
+        <!-- 最大次数 -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:layout_marginBottom="12dp">
+
+            <TextView
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="最大次数"
+                android:textSize="13sp"
+                android:textColor="#999999"
+                android:gravity="start|center_vertical"/>
+
+            <com.google.android.material.textfield.TextInputEditText
+                android:id="@+id/inputMaxAttempts"
+                android:layout_width="0dp"
+                android:layout_height="40dp"
+                android:layout_weight="1"
+                android:hint="50"
+                android:inputType="number"
+                android:background="@drawable/edittext_background"
+                android:padding="8dp"
+                android:textSize="14sp"
+                android:gravity="end"/>
+        </LinearLayout>
+
+        <!-- 最小间隔 -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:layout_marginBottom="12dp">
+
+            <TextView
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="最小间隔（秒）"
+                android:textSize="13sp"
+                android:textColor="#999999"
+                android:gravity="start|center_vertical"/>
+
+            <com.google.android.material.textfield.TextInputEditText
+                android:id="@+id/inputDelayMin"
+                android:layout_width="0dp"
+                android:layout_height="40dp"
+                android:layout_weight="1"
+                android:hint="39"
+                android:inputType="number"
+                android:background="@drawable/edittext_background"
+                android:padding="8dp"
+                android:textSize="14sp"
+                android:gravity="end"/>
+        </LinearLayout>
+
+        <!-- 最大间隔 -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:layout_marginBottom="16dp">
+
+            <TextView
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="最大间隔（秒）"
+                android:textSize="13sp"
+                android:textColor="#999999"
+                android:gravity="start|center_vertical"/>
+
+            <com.google.android.material.textfield.TextInputEditText
+                android:id="@+id/inputDelayMax"
+                android:layout_width="0dp"
+                android:layout_height="40dp"
+                android:layout_weight="1"
+                android:hint="180"
+                android:inputType="number"
+                android:background="@drawable/edittext_background"
+                android:padding="8dp"
+                android:textSize="14sp"
+                android:gravity="end"/>
+        </LinearLayout>
+
+        <!-- 保存按钮 -->
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btnSave"
+            android:layout_width="match_parent"
+            android:layout_height="50dp"
+            android:text="💾 保存设置"
+            android:textSize="16sp"
+            app:backgroundTint="#2EC760"
+            android:layout_marginBottom="12dp"/>
+
+        <!-- 重置按钮 -->
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btnReset"
+            android:layout_width="match_parent"
+            android:layout_height="50dp"
+            android:text="🔄 恢复默认设置"
+            android:textSize="16sp"
+            style="@style/Widget.Material3.Button.OutlinedButton"
+            app:strokeColor="#E63F3F"
+            android:textColor="#E63F3F"/>
+
+    </LinearLayout>
+</ScrollView>

@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    
+    <!-- 积分图标 -->
+    <path
+        android:fillColor="#4099FF"
+        android:pathData="M54,30 L54,78 M36,54 L72,54 M42,42 L66,66 M66,42 L42,66"/>
+    
+    <path
+        android:fillColor="#4099FF"
+        android:strokeWidth="4"
+        android:strokeColor="#4099FF"
+        android:pathData="M54,34m-20,0a20,20 0,1 1,40 0a20,20 0,1 1,-40 0"/>
+    
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M54,44 L54,64 M46,54 L62,54"/>
+        
+</vector>
