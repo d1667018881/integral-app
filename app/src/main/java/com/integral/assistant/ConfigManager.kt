@@ -23,9 +23,10 @@ class ConfigManager(context: Context) {
         const val DEFAULT_MAX_ATTEMPTS = 50
         const val DEFAULT_DELAY_MIN = 39
         const val DEFAULT_DELAY_MAX = 180
+        const val RESOURCE_ID_RANGE = 100
 
         // 日期格式（兼容 API 24+）
-        private val DATE_FORMAT = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
+        val DATE_FORMAT = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
     }
 
     fun getLoginId(): String = prefs.getString("login_id", DEFAULT_LOGIN_ID) ?: ""
@@ -94,7 +95,7 @@ class ConfigManager(context: Context) {
 
     // 初始化随机资源ID
     fun initResourceId() {
-        val randomId = (1..100).random()
+        val randomId = (1..RESOURCE_ID_RANGE).random()
         val today = getCurrentDateStr()
         resourcePrefs.edit()
             .putInt("resource_id", randomId)

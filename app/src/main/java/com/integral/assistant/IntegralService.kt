@@ -28,6 +28,14 @@ class IntegralService : Service() {
         // 静态变量，用于服务与Activity通信
         var isServiceRunning = false
         var serviceInstance: IntegralService? = null
+        private const val WAKE_LOCK_DURATION_MS = 24 * 60 * 60 * 1000L
+
+        // 任务状态（Activity 可安全读取）
+        @Volatile var statusText: String = "⏸ 待命中"
+        @Volatile var remainingSeconds: Int = 0
+        @Volatile var currentAttempt: Int = 0
+        @Volatile var maxAttempts: Int = 0
+        @Volatile var currentScore: Int = 0
     }
 
     private var wakeLock: PowerManager.WakeLock? = null
@@ -69,7 +77,7 @@ class IntegralService : Service() {
             "IntegralAssistant::WakeLock"
         ).apply {
             setReferenceCounted(false)
-            acquire(24 * 60 * 60 * 1000L) // 最多24小时
+            acquire(WAKE_LOCK_DURATION_MS)
         }
 
         isServiceRunning = true

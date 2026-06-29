@@ -68,7 +68,9 @@ class NetworkManager {
                         .build()
 
                     val response = client.newCall(request).execute()
-                    response.body?.string() ?: throw IOException("Empty response")
+                    response.use {
+                        it.body?.string() ?: throw IOException("Empty response")
+                    }
                 }
             } catch (e: IOException) {
                 // 网络异常，重试

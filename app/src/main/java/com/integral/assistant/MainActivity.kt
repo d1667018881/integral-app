@@ -12,8 +12,7 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
 import com.integral.assistant.databinding.ActivityMainBinding
 import kotlinx.coroutines.*
-import java.text.SimpleDateFormat
-import java.util.*
+import java.util.Date
 
 class MainActivity : AppCompatActivity() {
 
@@ -28,6 +27,8 @@ class MainActivity : AppCompatActivity() {
 
     companion object {
         private const val PERMISSION_REQUEST_CODE = 1001
+        private const val SERVICE_START_DELAY_MS = 500L
+        private const val MAX_LOG_LINES = 300
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -48,6 +49,20 @@ class MainActivity : AppCompatActivity() {
         // 同步服务状态
         isRunning = IntegralService.isServiceRunning
         updateButtonState()
+        // 恢复服务中的实时状态（倒计时、进度等）
+        if (isRunning) {
+            restoreServiceState()
+        }
+    }
+
+    private fun restoreServiceState() {
+        val remaining = IntegralService.remainingSeconds
+        val attempt = IntegralService.currentAttempt
+        if (remaining > 0) {
+            updateStatus("⏳ 第 $attempt 次 等待 ${remaining}s")
+        } else {
+            updateStatus(IntegralService.statusText)
+        }
     }
 
     private fun setupUI() {
@@ -150,7 +165,7 @@ class MainActivity : AppCompatActivity() {
             IntegralService.serviceInstance?.startTask {
                 runLoop(loginId, targetScore)
             }
-        }, 500)
+        }, SERVICE_START_DELAY_MS)
     }
 
     private fun stopExecution() {
@@ -211,6 +226,11 @@ class MainActivity : AppCompatActivity() {
         while (currentScore < targetScore && attempt <= maxAttempts && !stopRequested) {
             val delaySeconds = (delayMin..delayMax).random()
 
+            // 更新服务状态（供 Activity 恢复时读取）
+            IntegralService.currentAttempt = attempt
+            IntegralService.maxAttempts = maxAttempts
+            IntegralService.currentScore = currentScore
+
             appendLog("─── 第 $attempt 次（剩余 ${maxAttempts - attempt} 次）───")
             appendLog("⏳ 等待 $delaySeconds 秒...")
             updateStatus("⏳ 第 $attempt 次 等待 ${delaySeconds}s")
@@ -221,11 +241,13 @@ class MainActivity : AppCompatActivity() {
                 delay(1000)
                 waited++
                 val remaining = delaySeconds - waited
+                IntegralService.remainingSeconds = remaining
                 updateStatus("⏳ 第 $attempt 次 等待 ${remaining}s")
             }
 
             if (stopRequested) break
 
+            IntegralService.remainingSeconds = 0
             updateStatus("🔄 第 $attempt 次 执行中...")
 
             try {
@@ -255,7 +277,7 @@ class MainActivity : AppCompatActivity() {
 
                 // 保存配置
                 config.saveResourceId(newResourceId)
-                config.saveLastDate(SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date()))
+                config.saveLastDate(ConfigManager.DATE_FORMAT.format(Date()))
 
                 // 检查积分是否增长
                 if (newScore <= currentScore) {
@@ -322,12 +344,16 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun updateStatus(status: String) {
+        // 同步更新服务状态（即使界面销毁，也可以保留状态）
+        IntegralService.statusText = status
+        if (isFinishing || isDestroyed) return
         runOnUiThread {
             binding.tvStatus.text = status
         }
     }
 
     private fun appendLog(message: String) {
+        if (isFinishing || isDestroyed) return
         runOnUiThread {
             val currentText = binding.tvLog.text.toString()
             val newText = if (currentText.isEmpty() || currentText == "等待执行...") {
@@ -337,7 +363,7 @@ class MainActivity : AppCompatActivity() {
             }
             // 限制日志行数
             val lines = newText.split("\n")
-            val limitedLines = if (lines.size > 300) lines.takeLast(300) else lines
+            val limitedLines = if (lines.size > MAX_LOG_LINES) lines.takeLast(MAX_LOG_LINES) else lines
             binding.tvLog.text = limitedLines.joinToString("\n")
         }
     }
