@@ -4,20 +4,32 @@
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
-    
-    <!-- 积分图标 -->
-    <path
-        android:fillColor="#4099FF"
-        android:pathData="M54,30 L54,78 M36,54 L72,54 M42,42 L66,66 M66,42 L42,66"/>
-    
-    <path
-        android:fillColor="#4099FF"
-        android:strokeWidth="4"
-        android:strokeColor="#4099FF"
-        android:pathData="M54,34m-20,0a20,20 0,1 1,40 0a20,20 0,1 1,-40 0"/>
-    
+
+    <!-- 外层蓝底圆 -->
     <path
         android:fillColor="#FFFFFF"
-        android:pathData="M54,44 L54,64 M46,54 L62,54"/>
-        
+        android:pathData="M54,18C33.8,18 18,33.8 18,54C18,74.2 33.8,90 54,90C74.2,90 90,74.2 90,54C90,33.8 74.2,18 54,18Z"/>
+
+    <!-- 内层主色圆 -->
+    <path
+        android:fillColor="#3B82F6"
+        android:pathData="M54,28C39.6,28 28,39.6 28,54C28,68.4 39.6,80 54,80C68.4,80 80,68.4 80,54C80,39.6 68.4,28 54,28Z"/>
+
+    <!-- 向上的箭头（代表积分增长） -->
+    <path
+        android:fillColor="@android:color/transparent"
+        android:pathData="M48,60 L54,40 L60,60"
+        android:strokeColor="#FFFFFF"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"
+        android:strokeWidth="5"/>
+
+    <!-- 箭头横线 -->
+    <path
+        android:fillColor="@android:color/transparent"
+        android:pathData="M40,60 L68,60"
+        android:strokeColor="#FFFFFF"
+        android:strokeLineCap="round"
+        android:strokeWidth="5"/>
+
 </vector>
