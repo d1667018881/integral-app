@@ -178,7 +178,6 @@ class MainActivity : AppCompatActivity() {
         val maxAttempts = config.getMaxAttempts()
         val delayMin = config.getDelayMin()
         val delayMax = config.getDelayMax()
-        val siteCode = config.getSiteCode()
         val integralType = config.getIntegralType()
 
         appendLog("工号：$loginId")
@@ -244,7 +243,6 @@ class MainActivity : AppCompatActivity() {
                 // 提交积分
                 val newResourceId = networkManager.submitIntegral(
                     loginId = loginId,
-                    siteCode = siteCode,
                     integralType = integralType,
                     submitUrl = submitUrl,
                     resourceId = resourceId

@@ -41,6 +41,7 @@ class SettingsActivity : AppCompatActivity() {
     private fun loadSettings() {
         binding.inputSubmitUrl.setText(configManager.getSubmitUrl())
         binding.inputQueryUrl.setText(configManager.getQueryUrl())
+        binding.inputIntegralType.setText(configManager.getIntegralType())
         binding.inputMaxAttempts.setText(configManager.getMaxAttempts().toString())
         binding.inputDelayMin.setText(configManager.getDelayMin().toString())
         binding.inputDelayMax.setText(configManager.getDelayMax().toString())
@@ -49,13 +50,15 @@ class SettingsActivity : AppCompatActivity() {
     private fun saveSettings() {
         val submitUrl = binding.inputSubmitUrl.text.toString().trim()
         val queryUrl = binding.inputQueryUrl.text.toString().trim()
+        val integralType = binding.inputIntegralType.text.toString().trim()
         val maxAttemptsText = binding.inputMaxAttempts.text.toString().trim()
         val delayMinText = binding.inputDelayMin.text.toString().trim()
         val delayMaxText = binding.inputDelayMax.text.toString().trim()
 
         // 保存配置
-        configManager.saveSubmitUrl(if (submitUrl.isEmpty()) ConfigManager.DEFAULT_SUBMIT_URL else submitUrl)
-        configManager.saveQueryUrl(if (queryUrl.isEmpty()) ConfigManager.DEFAULT_QUERY_URL else queryUrl)
+        configManager.saveSubmitUrl(submitUrl)
+        configManager.saveQueryUrl(queryUrl)
+        configManager.saveIntegralType(integralType)
 
         // 解析最大次数
         val maxAttempts = maxAttemptsText.toIntOrNull() ?: ConfigManager.DEFAULT_MAX_ATTEMPTS
@@ -82,7 +85,7 @@ class SettingsActivity : AppCompatActivity() {
     private fun resetToDefault() {
         configManager.resetToDefault()
         loadSettings()
-        showToast("🔄 已恢复默认设置")
+        showToast("🔄 已恢复默认设置（工号保留）")
     }
 
     private fun showToast(message: String) {

@@ -59,7 +59,9 @@
             android:id="@+id/inputSubmitUrl"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:hint="提交 URL"
+            android:hint="请输入提交 URL"
+            android:textColor="#FFFFFF"
+            android:textColorHint="#666666"
             android:background="@drawable/edittext_background"
             android:padding="12dp"
             android:textSize="14sp"
@@ -77,10 +79,33 @@
             android:id="@+id/inputQueryUrl"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:hint="查询 URL"
+            android:hint="请输入查询 URL"
+            android:textColor="#FFFFFF"
+            android:textColorHint="#666666"
             android:background="@drawable/edittext_background"
             android:padding="12dp"
             android:textSize="14sp"
+            android:layout_marginBottom="12dp"/>
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="积分类型"
+            android:textSize="13sp"
+            android:textColor="#999999"
+            android:layout_marginBottom="4dp"/>
+
+        <com.google.android.material.textfield.TextInputEditText
+            android:id="@+id/inputIntegralType"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:hint="请输入积分类型（如：4）"
+            android:textColor="#FFFFFF"
+            android:textColorHint="#666666"
+            android:background="@drawable/edittext_background"
+            android:padding="12dp"
+            android:textSize="14sp"
+            android:inputType="number"
             android:layout_marginBottom="16dp"/>
 
         <!-- 执行设置 -->
@@ -116,6 +141,8 @@
                 android:layout_weight="1"
                 android:hint="50"
                 android:inputType="number"
+                android:textColor="#FFFFFF"
+                android:textColorHint="#666666"
                 android:background="@drawable/edittext_background"
                 android:padding="8dp"
                 android:textSize="14sp"
@@ -145,6 +172,8 @@
                 android:layout_weight="1"
                 android:hint="39"
                 android:inputType="number"
+                android:textColor="#FFFFFF"
+                android:textColorHint="#666666"
                 android:background="@drawable/edittext_background"
                 android:padding="8dp"
                 android:textSize="14sp"
@@ -174,6 +203,8 @@
                 android:layout_weight="1"
                 android:hint="180"
                 android:inputType="number"
+                android:textColor="#FFFFFF"
+                android:textColorHint="#666666"
                 android:background="@drawable/edittext_background"
                 android:padding="8dp"
                 android:textSize="14sp"

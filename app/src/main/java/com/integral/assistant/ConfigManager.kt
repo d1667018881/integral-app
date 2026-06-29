@@ -7,9 +7,6 @@ import java.util.*
 
 /**
  * 配置管理器 - 保存用户设置
- * 对应另一个AI的 user_config.json
- * 
- * 修复：使用 SimpleDateFormat 替代 java.time.LocalDate (兼容 API 24+)
  */
 class ConfigManager(context: Context) {
 
@@ -20,15 +17,15 @@ class ConfigManager(context: Context) {
         // 默认配置
         const val DEFAULT_LOGIN_ID = ""
         const val DEFAULT_SITE_CODE = "zzrailway"
-        const val DEFAULT_INTEGRAL_TYPE = "4"
-        const val DEFAULT_SUBMIT_URL = "https://jtzp.webtrn.cn/mobile/login_multipleIntegralSave.action"
-        const val DEFAULT_QUERY_URL = "https://webtrn-zpb.cr-beijing.net/o/userDefinedSql/getBySqlCode.json?data=info"
+        const val DEFAULT_INTEGRAL_TYPE = ""
+        const val DEFAULT_SUBMIT_URL = ""
+        const val DEFAULT_QUERY_URL = ""
         const val DEFAULT_MAX_ATTEMPTS = 50
         const val DEFAULT_DELAY_MIN = 39
         const val DEFAULT_DELAY_MAX = 180
 
         // 日期格式（兼容 API 24+）
-        private val DATE_FORMAT = object : SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()) {}
+        private val DATE_FORMAT = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
     }
 
     fun getLoginId(): String = prefs.getString("login_id", DEFAULT_LOGIN_ID) ?: ""
@@ -65,13 +62,17 @@ class ConfigManager(context: Context) {
         prefs.edit().putInt("delay_max", delay).apply()
     }
 
-    // 重置所有配置为默认值
+    // 重置所有配置为默认值（保留工号）
     fun resetToDefault() {
-        prefs.edit().clear().apply()
+        val currentLoginId = getLoginId()
+        prefs.edit()
+            .clear()
+            .putString("login_id", currentLoginId)
+            .apply()
     }
 
     /**
-     * 资源ID管理 - 对应另一个AI的 resource_id.txt
+     * 资源ID管理
      */
     private val resourcePrefs: SharedPreferences =
         context.getSharedPreferences("resource_data", Context.MODE_PRIVATE)
@@ -88,7 +89,7 @@ class ConfigManager(context: Context) {
 
     // 获取当前日期字符串（兼容 API 24+）
     private fun getCurrentDateStr(): String {
-        return SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date())
+        return DATE_FORMAT.format(Date())
     }
 
     // 初始化随机资源ID

@@ -92,11 +92,13 @@ class NetworkManager {
      */
     suspend fun submitIntegral(
         loginId: String,
-        siteCode: String,
         integralType: String,
         submitUrl: String,
         resourceId: Int
     ): Int {
+        // 站点代码写死在代码中，不从外部传入
+        val siteCode = "zzrailway"
+        
         val data = mapOf(
             "loginId" to loginId,
             "siteCode" to siteCode,
