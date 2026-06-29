@@ -7,6 +7,9 @@ on:
     branches: [ main, master ]
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -31,10 +34,26 @@ jobs:
         restore-keys: |
           ${{ runner.os }}-gradle-
 
-    - name: Create debug keystore
+    - name: Create debug keystore (only if not in repo)
       run: |
         cd app
-        keytool -genkey -v -keystore debug.keystore -alias androiddebugkey -storepass android -keypass android -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=Android Debug,O=Android,C=US" 2>/dev/null || true
+        if [ -f debug.keystore ]; then
+          echo "Using existing keystore from repository"
+        else
+          echo "Generating new keystore..."
+          keytool -genkey -v -keystore debug.keystore -alias androiddebugkey -storepass android -keypass android -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=Android Debug,O=Android,C=US"
+        fi
+
+    - name: Commit keystore to repository
+      run: |
+        git config user.name "GitHub Actions"
+        git config user.email "actions@github.com"
+        if [ -f app/debug.keystore ] && ! git ls-files --error-unmatch app/debug.keystore 2>/dev/null; then
+          git add app/debug.keystore
+          git commit -m "Add debug keystore for consistent signing"
+          git push origin main || true
+          echo "Keystore committed to repository"
+        fi
 
     - name: Build Debug APK
       uses: gradle/gradle-build-action@v3
