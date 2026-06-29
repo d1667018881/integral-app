@@ -26,15 +26,7 @@ jobs:
         java-version: '17'
         distribution: 'temurin'
 
-    - name: Cache Gradle packages
-      uses: actions/cache@v4
-      with:
-        path: |
-          ~/.gradle/caches
-          ~/.gradle/wrapper
-        key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}
-        restore-keys: |
-          ${{ runner.os }}-gradle-
+    # Note: gradle/actions/setup-gradle handles Gradle caching automatically
 
     - name: Verify keystore exists
       id: keystore
@@ -87,10 +79,10 @@ jobs:
         echo "next_version_name=$NEW_VERSION" >> $GITHUB_OUTPUT
 
     - name: Build Debug APK
-      uses: gradle/gradle-build-action@v3
+      uses: gradle/actions/setup-gradle@v4
       with:
         gradle-version: '8.2'
-        arguments: 'assembleDebug'
+        arguments: assembleDebug
 
     - name: Upload APK
       uses: actions/upload-artifact@v4
