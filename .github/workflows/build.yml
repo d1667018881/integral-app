@@ -79,7 +79,9 @@ jobs:
         
         # Increment version in local files (for this build only)
         sed -i "s/versionCode = $OLD_CODE/versionCode = $NEW_CODE/" "$BUILD_FILE"
-        sed -i "s/versionName = \"$OLD_NAME\"/versionName = \"$NEW_VERSION\"/" "$BUILD_FILE"
+        # Escape dots to prevent sed treating them as wildcards (防止 . 被当成通配符)
+        OLD_NAME_SAFE=$(echo "$OLD_NAME" | sed 's/\./\\./g')
+        sed -i "s/versionName = \"$OLD_NAME_SAFE\"/versionName = \"$NEW_VERSION\"/" "$BUILD_FILE"
         
         echo "next_version_code=$NEW_CODE" >> $GITHUB_OUTPUT
         echo "next_version_name=$NEW_VERSION" >> $GITHUB_OUTPUT
