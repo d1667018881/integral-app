@@ -215,11 +215,13 @@ class MainActivity : AppCompatActivity() {
             appendLog("⏳ 等待 $delaySeconds 秒...")
             updateStatus("⏳ 第 $attempt 次 等待 ${delaySeconds}s")
 
-            // 倒计时等待（每秒检查一次停止请求）
+            // 倒计时等待（每秒检查一次停止请求，动态显示剩余秒数）
             var waited = 0
             while (waited < delaySeconds && !stopRequested) {
                 delay(1000)
                 waited++
+                val remaining = delaySeconds - waited
+                updateStatus("⏳ 第 $attempt 次 等待 ${remaining}s")
             }
 
             if (stopRequested) break

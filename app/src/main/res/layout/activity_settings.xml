@@ -99,7 +99,7 @@
             android:id="@+id/inputIntegralType"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:hint="请输入积分类型（如：4）"
+            android:hint="请输入积分类型"
             android:textColor="#FFFFFF"
             android:textColorHint="#666666"
             android:background="@drawable/edittext_background"
