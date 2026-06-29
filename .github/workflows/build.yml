@@ -17,6 +17,8 @@ jobs:
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
+      with:
+        fetch-depth: 0  # Fetch all history for proper git operations
 
     - name: Set up JDK 17
       uses: actions/setup-java@v4
@@ -34,27 +36,28 @@ jobs:
         restore-keys: |
           ${{ runner.os }}-gradle-
 
-    - name: Create debug keystore (only if not in repo)
+    - name: Verify keystore exists
+      id: keystore
       run: |
         cd app
         if [ -f debug.keystore ]; then
-          echo "Using existing keystore from repository"
+          echo "✅ Using existing keystore from repository"
+          echo "exists=true" >> $GITHUB_OUTPUT
         else
-          echo "Generating new keystore..."
+          echo "⚠️ Keystore not found, generating new one..."
           keytool -genkey -v -keystore debug.keystore -alias androiddebugkey -storepass android -keypass android -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=Android Debug,O=Android,C=US"
+          echo "exists=false" >> $GITHUB_OUTPUT
         fi
 
-    - name: Commit keystore to repository
-      if: hashFiles('app/debug.keystore') != ''
+    - name: Commit keystore to repository (only if newly generated)
+      if: steps.keystore.outputs.exists == 'false'
       run: |
         git config user.name "GitHub Actions"
         git config user.email "actions@github.com"
-        if [ -f app/debug.keystore ] && ! git ls-files --error-unmatch app/debug.keystore 2>/dev/null; then
-          git add app/debug.keystore
-          git commit -m "Add debug keystore for consistent signing" || true
-          git push origin main || true
-          echo "Keystore committed to repository"
-        fi
+        git add app/debug.keystore
+        git commit -m "Add debug keystore for consistent signing [skip ci]"
+        git push origin main || true
+        echo "Keystore committed to repository"
 
     - name: Increment version for this build
       id: version
@@ -64,15 +67,15 @@ jobs:
         OLD_NAME=$(grep -oP 'versionName\s*=\s*"\K[0-9.]+' "$BUILD_FILE")
         
         # Calculate next version
+        # versionCode 1 → versionName 1.0
+        # versionCode 2 → versionName 1.1
+        # versionCode 3 → versionName 1.2
+        # Formula: versionName = 1.(versionCode - 1)
         NEW_CODE=$((OLD_CODE + 1))
-        MAJOR=$((NEW_CODE / 10))
-        if [ $MAJOR -eq 0 ]; then
-          MAJOR=1
-        fi
-        MINOR=$((NEW_CODE - MAJOR * 10))
-        NEW_VERSION="${MAJOR}.${MINOR}"
+        MINOR=$((NEW_CODE - 1))
+        NEW_VERSION="1.${MINOR}"
         
-        echo "Building version: $NEW_VERSION (code: $NEW_CODE)"
+        echo "Building version: $NEW_VERSION (code: $NEW_CODE, was: $OLD_NAME)"
         
         # Increment version in local files (for this build only)
         sed -i "s/versionCode = $OLD_CODE/versionCode = $NEW_CODE/" "$BUILD_FILE"
