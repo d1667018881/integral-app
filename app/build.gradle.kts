@@ -16,7 +16,7 @@ android {
     }
 
     signingConfigs {
-        create("debug") {
+        create("fixedDebug") {
             // 固定签名配置，确保每次构建签名一致
             storeFile = file("debug.keystore")
             storePassword = "android"
@@ -32,11 +32,11 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
-            signingConfig = signingConfigs.getByName("debug")
+            signingConfig = signingConfigs.getByName("fixedDebug")
         }
         debug {
             isMinifyEnabled = false
-            signingConfig = signingConfigs.getByName("debug")
+            signingConfig = signingConfigs.getByName("fixedDebug")
         }
     }
     compileOptions {
