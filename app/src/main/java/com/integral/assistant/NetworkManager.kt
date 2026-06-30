@@ -5,6 +5,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 import okhttp3.FormBody
 import okhttp3.OkHttpClient
+import okhttp3.Request
 import java.security.SecureRandom
 import java.security.cert.X509Certificate
 import java.util.concurrent.TimeUnit
@@ -13,6 +14,7 @@ import javax.net.ssl.TrustManager
 import javax.net.ssl.X509TrustManager
 import com.google.gson.Gson
 import com.google.gson.JsonObject
+import com.google.gson.reflect.TypeToken
 import java.io.IOException
 
 /**
@@ -59,7 +61,7 @@ class NetworkManager {
                         }
                     }.build()
 
-                    val request = okhttp3.Request.Builder()
+                    val request = Request.Builder()
                         .url(url)
                         .post(body)
                         .header("Connection", "keep-alive")
@@ -86,6 +88,116 @@ class NetworkManager {
             }
         }
         throw IOException("All retries failed")
+    }
+
+    /**
+     * 从网页抓取配置 JSON
+     * 支持微云分享页面等包含 JSON 的 HTML 页面
+     */
+    suspend fun fetchConfigFromUrl(url: String): String? {
+        return withContext(Dispatchers.IO) {
+            try {
+                val request = Request.Builder()
+                    .url(url)
+                    .header("User-Agent", "Mozilla/5.0 (Linux; Android 10; SM-G960U) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.120 Mobile Safari/537.36")
+                    .build()
+
+                val response = client.newCall(request).execute()
+                val html = response.use { it.body?.string() } ?: return@withContext null
+
+                // 尝试从 HTML 中提取 JSON
+                extractJsonFromHtml(html)
+            } catch (e: Exception) {
+                null
+            }
+        }
+    }
+
+    /**
+     * 从 HTML 内容中提取 JSON 配置
+     * 支持多种格式：
+     * 1. 微云分享页面的 html_content 字段
+     * 2. 纯 JSON 文本
+     * 3. <script> 标签中的 JSON
+     */
+    private fun extractJsonFromHtml(html: String): String? {
+        // 方案 1：尝试提取微云分享页面的 html_content 中的 JSON
+        // 格式："html_content":"{...}"
+        val htmlContentPattern = "\"html_content\":\"([^\"]+)\"".toRegex()
+        htmlContentPattern.find(html)?.let { match ->
+            val encodedJson = match.groupValues[1]
+            // 解码 HTML 实体
+            val decodedJson = encodedJson
+                .replace("\\u003C", "<")
+                .replace("\\u003E", ">")
+                .replace("\\u0026", "&")
+                .replace("\\n", "\n")
+                .replace("\\t", "\t")
+                .replace("\\\"", "\"")
+                .replace("\\\\", "\\")
+            
+            // 从解码后的内容中提取纯 JSON（去掉 HTML 标签）
+            return extractJsonFromDecodedHtml(decodedJson)
+        }
+
+        // 方案 2：尝试直接提取页面中的 JSON 对象
+        // 查找 { "submit_url": ... } 格式的 JSON
+        val jsonPattern = "\\{[\\s\\S]*?\"submit_url\"[\\s\\S]*?\\}".toRegex()
+        jsonPattern.find(html)?.let {
+            return it.value
+        }
+
+        // 方案 3：如果页面本身就是纯 JSON
+        if (html.trim().startsWith("{")) {
+            return html.trim()
+        }
+
+        return null
+    }
+
+    /**
+     * 从解码后的 HTML 内容中提取纯 JSON
+     * 微云页面的 html_content 包含 <div> 标签包裹的 JSON
+     */
+    private fun extractJsonFromDecodedHtml(decodedHtml: String): String? {
+        // 去掉 HTML 标签，保留文本内容
+        val textContent = decodedHtml
+            .replace("<div>", "\n")
+            .replace("</div>", "")
+            .replace("&nbsp;", " ")
+            .replace("<br>", "\n")
+            .replace("\\n", "\n")
+            .trim()
+
+        // 查找 JSON 对象
+        val jsonStart = textContent.indexOf("{")
+        val jsonEnd = textContent.lastIndexOf("}")
+        
+        if (jsonStart >= 0 && jsonEnd > jsonStart) {
+            return textContent.substring(jsonStart, jsonEnd + 1)
+        }
+
+        return null
+    }
+
+    /**
+     * 验证从网页获取的 JSON 是否包含有效的配置字段
+     */
+    fun validateConfigJson(jsonString: String): Boolean {
+        return try {
+            val type = object : TypeToken<Map<String, String>>() {}.type
+            val configMap: Map<String, String> = gson.fromJson(jsonString, type)
+            
+            // 至少包含一个有效字段
+            configMap.containsKey("submit_url") ||
+            configMap.containsKey("query_url") ||
+            configMap.containsKey("integral_type") ||
+            configMap.containsKey("max_attempts") ||
+            configMap.containsKey("delay_min") ||
+            configMap.containsKey("delay_max")
+        } catch (e: Exception) {
+            false
+        }
     }
 
     /**

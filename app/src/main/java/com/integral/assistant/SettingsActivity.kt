@@ -6,12 +6,15 @@ import android.content.Context
 import android.os.Bundle
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
+import androidx.lifecycle.lifecycleScope
 import com.integral.assistant.databinding.ActivitySettingsBinding
+import kotlinx.coroutines.launch
 
 class SettingsActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivitySettingsBinding
     private lateinit var configManager: ConfigManager
+    private lateinit var networkManager: NetworkManager
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -19,6 +22,7 @@ class SettingsActivity : AppCompatActivity() {
         setContentView(binding.root)
 
         configManager = ConfigManager(this)
+        networkManager = NetworkManager()
 
         setupUI()
         loadSettings()
@@ -38,6 +42,11 @@ class SettingsActivity : AppCompatActivity() {
         // 重置按钮
         binding.btnReset.setOnClickListener {
             resetToDefault()
+        }
+
+        // 从网络导入按钮
+        binding.btnImportFromUrl.setOnClickListener {
+            importFromUrl()
         }
 
         // 备份按钮 — 导出配置到剪贴板
@@ -99,6 +108,51 @@ class SettingsActivity : AppCompatActivity() {
         configManager.resetToDefault()
         loadSettings()
         showToast("🔄 已恢复默认设置（工号保留）")
+    }
+
+    /**
+     * 从网络链接导入配置
+     */
+    private fun importFromUrl() {
+        val url = binding.inputImportUrl.text.toString().trim()
+
+        if (url.isEmpty()) {
+            showToast("❌ 请先输入分享链接")
+            return
+        }
+
+        showToast("🔄 正在获取配置...")
+
+        lifecycleScope.launch {
+            try {
+                // 从网页获取 JSON
+                val jsonString = networkManager.fetchConfigFromUrl(url)
+
+                if (jsonString == null) {
+                    showToast("❌ 无法从链接获取配置")
+                    return@launch
+                }
+
+                // 验证 JSON 是否有效
+                if (!networkManager.validateConfigJson(jsonString)) {
+                    showToast("❌ 链接内容不包含有效配置")
+                    return@launch
+                }
+
+                // 导入配置
+                val success = configManager.importConfig(jsonString)
+                if (success) {
+                    loadSettings()
+                    // 将获取到的 JSON 显示在输入框中
+                    binding.inputBackupData.setText(jsonString)
+                    showToast("✅ 从网络导入成功")
+                } else {
+                    showToast("❌ 配置解析失败")
+                }
+            } catch (e: Exception) {
+                showToast("❌ 网络请求失败：${e.message}")
+            }
+        }
     }
 
     /**
