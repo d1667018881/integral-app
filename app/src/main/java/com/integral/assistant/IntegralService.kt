@@ -85,10 +85,7 @@ class IntegralService : Service() {
 
     private fun stopForegroundService() {
         // 释放唤醒锁
-        wakeLock?.let {
-            if (it.isHeld) it.release()
-        }
-        wakeLock = null
+        releaseWakeLock()
 
         // 取消任务
         currentJob?.cancel()
@@ -103,9 +100,7 @@ class IntegralService : Service() {
     override fun onDestroy() {
         super.onDestroy()
         // 释放资源
-        wakeLock?.let {
-            if (it.isHeld) it.release()
-        }
+        releaseWakeLock()
         serviceScope.cancel()
         isServiceRunning = false
         serviceInstance = null
@@ -148,7 +143,18 @@ class IntegralService : Service() {
     // 供 Activity 调用的方法
     fun startTask(task: suspend () -> Unit) {
         currentJob = serviceScope.launch {
-            task()
+            try {
+                task()
+            } finally {
+                // 任务结束（成功/失败/取消）时立即释放唤醒锁
+                releaseWakeLock()
+            }
+        }
+    }
+
+    private fun releaseWakeLock() {
+        wakeLock?.let {
+            if (it.isHeld) it.release()
         }
     }
 
