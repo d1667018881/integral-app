@@ -25,7 +25,7 @@
         android:label="积分助手"
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
-        android:theme="@style/Theme.Material3.DayNight.NoActionBar"
+        android:theme="@style/Theme.Material3.Light.NoActionBar"
         android:usesCleartextTraffic="true"
         tools:targetApi="36">
 

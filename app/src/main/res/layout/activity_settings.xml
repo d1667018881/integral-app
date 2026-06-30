@@ -51,7 +51,7 @@
             android:layout_height="wrap_content"
             android:text="积分提交 URL"
             android:textSize="13sp"
-            android:textColor="#999999"
+            android:textColor="#64748B"
             android:layout_marginBottom="4dp"/>
 
         <com.google.android.material.textfield.TextInputEditText
@@ -59,8 +59,8 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:hint="请输入提交 URL"
-            android:textColor="#FFFFFF"
-            android:textColorHint="#666666"
+            android:textColor="#1E293B"
+            android:textColorHint="#94A3B8"
             android:background="@drawable/edittext_background"
             android:padding="12dp"
             android:textSize="14sp"
@@ -71,7 +71,7 @@
             android:layout_height="wrap_content"
             android:text="积分查询 URL"
             android:textSize="13sp"
-            android:textColor="#999999"
+            android:textColor="#64748B"
             android:layout_marginBottom="4dp"/>
 
         <com.google.android.material.textfield.TextInputEditText
@@ -79,8 +79,8 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:hint="请输入查询 URL"
-            android:textColor="#FFFFFF"
-            android:textColorHint="#666666"
+            android:textColor="#1E293B"
+            android:textColorHint="#94A3B8"
             android:background="@drawable/edittext_background"
             android:padding="12dp"
             android:textSize="14sp"
@@ -91,7 +91,7 @@
             android:layout_height="wrap_content"
             android:text="积分类型"
             android:textSize="13sp"
-            android:textColor="#999999"
+            android:textColor="#64748B"
             android:layout_marginBottom="4dp"/>
 
         <com.google.android.material.textfield.TextInputEditText
@@ -99,8 +99,8 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:hint="请输入积分类型"
-            android:textColor="#FFFFFF"
-            android:textColorHint="#666666"
+            android:textColor="#1E293B"
+            android:textColorHint="#94A3B8"
             android:background="@drawable/edittext_background"
             android:padding="12dp"
             android:textSize="14sp"
@@ -130,7 +130,7 @@
                 android:layout_weight="1"
                 android:text="最大次数"
                 android:textSize="13sp"
-                android:textColor="#999999"
+                android:textColor="#64748B"
                 android:gravity="start|center_vertical"/>
 
             <com.google.android.material.textfield.TextInputEditText
@@ -140,8 +140,8 @@
                 android:layout_weight="1"
                 android:hint="50"
                 android:inputType="number"
-                android:textColor="#FFFFFF"
-                android:textColorHint="#666666"
+                android:textColor="#1E293B"
+                android:textColorHint="#94A3B8"
                 android:background="@drawable/edittext_background"
                 android:padding="8dp"
                 android:textSize="14sp"
@@ -161,7 +161,7 @@
                 android:layout_weight="1"
                 android:text="最小间隔（秒）"
                 android:textSize="13sp"
-                android:textColor="#999999"
+                android:textColor="#64748B"
                 android:gravity="start|center_vertical"/>
 
             <com.google.android.material.textfield.TextInputEditText
@@ -171,8 +171,8 @@
                 android:layout_weight="1"
                 android:hint="39"
                 android:inputType="number"
-                android:textColor="#FFFFFF"
-                android:textColorHint="#666666"
+                android:textColor="#1E293B"
+                android:textColorHint="#94A3B8"
                 android:background="@drawable/edittext_background"
                 android:padding="8dp"
                 android:textSize="14sp"
@@ -192,7 +192,7 @@
                 android:layout_weight="1"
                 android:text="最大间隔（秒）"
                 android:textSize="13sp"
-                android:textColor="#999999"
+                android:textColor="#64748B"
                 android:gravity="start|center_vertical"/>
 
             <com.google.android.material.textfield.TextInputEditText
@@ -202,8 +202,8 @@
                 android:layout_weight="1"
                 android:hint="180"
                 android:inputType="number"
-                android:textColor="#FFFFFF"
-                android:textColorHint="#666666"
+                android:textColor="#1E293B"
+                android:textColorHint="#94A3B8"
                 android:background="@drawable/edittext_background"
                 android:padding="8dp"
                 android:textSize="14sp"
@@ -225,7 +225,7 @@
             android:layout_height="wrap_content"
             android:text="配置数据（粘贴分享链接或配置文本）"
             android:textSize="13sp"
-            android:textColor="#999999"
+            android:textColor="#64748B"
             android:layout_marginBottom="4dp"/>
 
         <com.google.android.material.textfield.TextInputEditText
@@ -233,8 +233,8 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:hint="粘贴分享链接或配置数据..."
-            android:textColor="#FFFFFF"
-            android:textColorHint="#666666"
+            android:textColor="#1E293B"
+            android:textColorHint="#94A3B8"
             android:background="@drawable/edittext_background"
             android:padding="12dp"
             android:textSize="12sp"
