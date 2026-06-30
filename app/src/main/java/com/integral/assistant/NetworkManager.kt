@@ -157,7 +157,7 @@ class NetworkManager {
      */
     private fun extractFromWeiyunHtml(html: String): String? {
         // 支持 html_content 值中包含转义引号 \"
-        val htmlContentPattern = """"html_content":"((?:[^"\\]|\\.)+)"""".toRegex()
+        val htmlContentPattern = "\"html_content\":\"((?:[^\"\\\\]|\\\\.)+)\"".toRegex()
         htmlContentPattern.find(html)?.let { match ->
             val encodedJson = match.groupValues[1]
             val decodedJson = encodedJson
