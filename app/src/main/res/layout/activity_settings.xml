@@ -221,20 +221,19 @@
             android:textStyle="bold"
             android:layout_marginBottom="12dp"/>
 
-        <com.google.android.material.button.MaterialButton
-            android:id="@+id/btnBackup"
+        <TextView
             android:layout_width="match_parent"
-            android:layout_height="50dp"
-            android:text="📤 导出配置"
-            android:textSize="16sp"
-            style="@style/Widget.Material3.Button.TonalButton"
-            android:layout_marginBottom="12dp"/>
+            android:layout_height="wrap_content"
+            android:text="配置数据（导出时自动填充，恢复时在此粘贴）"
+            android:textSize="13sp"
+            android:textColor="#999999"
+            android:layout_marginBottom="4dp"/>
 
         <com.google.android.material.textfield.TextInputEditText
             android:id="@+id/inputBackupData"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:hint="在此粘贴配置数据以恢复..."
+            android:hint="点击导出配置后，JSON 数据将显示在这里..."
             android:textColor="#FFFFFF"
             android:textColorHint="#666666"
             android:background="@drawable/edittext_background"
@@ -244,15 +243,34 @@
             android:gravity="top"
             android:layout_marginBottom="12dp"/>
 
-        <com.google.android.material.button.MaterialButton
-            android:id="@+id/btnRestore"
+        <LinearLayout
             android:layout_width="match_parent"
-            android:layout_height="50dp"
-            android:text="📥 导入配置"
-            android:textSize="16sp"
-            style="@style/Widget.Material3.Button.TonalButton"
-            app:backgroundTint="#FFA500"
-            android:layout_marginBottom="16dp"/>
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:layout_marginBottom="16dp">
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btnBackup"
+                android:layout_width="0dp"
+                android:layout_height="50dp"
+                android:layout_weight="1"
+                android:layout_marginEnd="8dp"
+                android:text="📤 导出"
+                android:textSize="16sp"
+                style="@style/Widget.Material3.Button.TonalButton"/>
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btnRestore"
+                android:layout_width="0dp"
+                android:layout_height="50dp"
+                android:layout_weight="1"
+                android:layout_marginStart="8dp"
+                android:text="📥 导入"
+                android:textSize="16sp"
+                style="@style/Widget.Material3.Button.TonalButton"
+                app:backgroundTint="#FFA500"/>
+
+        </LinearLayout>
 
         <!-- 保存按钮 -->
         <com.google.android.material.button.MaterialButton
