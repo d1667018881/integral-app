@@ -158,16 +158,25 @@ class NetworkManager {
     /**
      * 从解码后的 HTML 内容中提取纯 JSON
      * 微云页面的 html_content 包含 <div> 标签包裹的 JSON
+     * 且 URL 可能被自动转换为超链接 <a href="...">...</a>
      */
     private fun extractJsonFromDecodedHtml(decodedHtml: String): String? {
         // 去掉 HTML 标签，保留文本内容
-        val textContent = decodedHtml
+        var textContent = decodedHtml
             .replace("<div>", "\n")
             .replace("</div>", "")
             .replace("&nbsp;", " ")
             .replace("<br>", "\n")
             .replace("\\n", "\n")
             .trim()
+
+        // 去掉 URL 中的超链接标签 <a href="...">...</a>
+        // 保留 <a> 标签内的文本内容（即 URL 本身）
+        val anchorPattern = "<a[^>]*href=\"([^\"]*)\"[^>]*>([^<]*)</a>".toRegex()
+        textContent = anchorPattern.replace(textContent) { matchResult ->
+            // 返回 <a> 标签内的文本内容
+            matchResult.groupValues[2]
+        }
 
         // 查找 JSON 对象
         val jsonStart = textContent.indexOf("{")
