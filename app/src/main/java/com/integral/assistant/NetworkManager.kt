@@ -161,10 +161,30 @@ class NetworkManager {
 
     /**
      * 策略 0：提取 Base64 编码的内容
-     * 支持微云分享页面中的 Base64 文本
+     * 支持微云分享页面中的 Base64 文本（可能被分割在多个 <div> 中）
      */
     private fun extractBase64FromHtml(html: String): String? {
-        // 先去掉 HTML 标签
+        // 先尝试提取微云页面中分割在多个 <div> 里的 Base64
+        // 格式：<div>base64_part1</div><div>base64_part2</div>...
+        val divPattern = "<div>([^<]+)</div>".toRegex(RegexOption.IGNORE_CASE)
+        val divContents = divPattern.findAll(html).map { it.groupValues[1].trim() }.toList()
+        
+        if (divContents.isNotEmpty()) {
+            // 尝试拼接所有 <div> 内容，看是否是完整的 Base64
+            val combined = divContents.joinToString("")
+            if (combined.length >= 20) {
+                try {
+                    val decoded = String(Base64.decode(combined, Base64.DEFAULT), StandardCharsets.UTF_8)
+                    if (decoded.trim().startsWith("{")) {
+                        return decoded
+                    }
+                } catch (e: IllegalArgumentException) {
+                    // 不是有效的 Base64，继续尝试其他策略
+                }
+            }
+        }
+        
+        // 兜底：从纯文本中查找 Base64
         val textOnly = html.replace("<[^>]+>".toRegex(), " ")
             .replace("&nbsp;", " ")
             .replace("&lt;", "<")
@@ -178,9 +198,7 @@ class NetworkManager {
         base64Pattern.findAll(textOnly).forEach { match ->
             val base64Str = match.value.trim()
             try {
-                // 尝试 Base64 解码
                 val decoded = String(Base64.decode(base64Str, Base64.DEFAULT), StandardCharsets.UTF_8)
-                // 验证解码后是否是有效的 JSON
                 if (decoded.trim().startsWith("{")) {
                     return decoded
                 }
