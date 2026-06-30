@@ -92,7 +92,7 @@ class NetworkManager {
 
     /**
      * 从网页抓取配置 JSON
-     * 支持微云分享页面等包含 JSON 的 HTML 页面
+     * 支持多种网页格式，按优先级依次尝试
      */
     suspend fun fetchConfigFromUrl(url: String): String? {
         return withContext(Dispatchers.IO) {
@@ -105,7 +105,7 @@ class NetworkManager {
                 val response = client.newCall(request).execute()
                 val html = response.use { it.body?.string() } ?: return@withContext null
 
-                // 尝试从 HTML 中提取 JSON
+                // 按优先级尝试多种提取策略
                 extractJsonFromHtml(html)
             } catch (e: Exception) {
                 null
@@ -114,19 +114,51 @@ class NetworkManager {
     }
 
     /**
-     * 从 HTML 内容中提取 JSON 配置
-     * 支持多种格式：
-     * 1. 微云分享页面的 html_content 字段
-     * 2. 纯 JSON 文本
-     * 3. <script> 标签中的 JSON
+     * 通用 JSON 提取器
+     * 按优先级尝试多种策略，哪个成功用哪个
      */
     private fun extractJsonFromHtml(html: String): String? {
-        // 方案 1：尝试提取微云分享页面的 html_content 中的 JSON
-        // 格式："html_content":"{...}"
-        val htmlContentPattern = "\"html_content\":\"([^\"]+)\"".toRegex()
+        // 策略 1：页面本身就是纯 JSON
+        val trimmed = html.trim()
+        if (trimmed.startsWith("{") && trimmed.endsWith("}")) {
+            if (validateConfigJson(trimmed)) return trimmed
+        }
+
+        // 策略 2：微云分享页面的 html_content 字段
+        extractFromWeiyunHtml(html)?.let { json ->
+            if (validateConfigJson(json)) return json
+        }
+
+        // 策略 3：<pre> 或 <code> 标签中的 JSON
+        extractFromPreCodeTags(html)?.let { json ->
+            if (validateConfigJson(json)) return json
+        }
+
+        // 策略 4：<script> 标签中的 JSON 变量
+        extractFromScriptTags(html)?.let { json ->
+            if (validateConfigJson(json)) return json
+        }
+
+        // 策略 5：JSONP 格式 callback({...})
+        extractFromJsonp(html)?.let { json ->
+            if (validateConfigJson(json)) return json
+        }
+
+        // 策略 6：整个页面中搜索 JSON 对象模式
+        extractFromRawText(html)?.let { json ->
+            if (validateConfigJson(json)) return json
+        }
+
+        return null
+    }
+
+    /**
+     * 策略 2：微云分享页面
+     */
+    private fun extractFromWeiyunHtml(html: String): String? {
+        val htmlContentPattern = ""html_content":"([^"]+)""".toRegex()
         htmlContentPattern.find(html)?.let { match ->
             val encodedJson = match.groupValues[1]
-            // 解码 HTML 实体
             val decodedJson = encodedJson
                 .replace("\\u003C", "<")
                 .replace("\\u003E", ">")
@@ -136,32 +168,106 @@ class NetworkManager {
                 .replace("\\\"", "\"")
                 .replace("\\\\", "\\")
             
-            // 从解码后的内容中提取纯 JSON（去掉 HTML 标签）
             return extractJsonFromDecodedHtml(decodedJson)
         }
-
-        // 方案 2：尝试直接提取页面中的 JSON 对象
-        // 查找 { "submit_url": ... } 格式的 JSON
-        val jsonPattern = "\\{[\\s\\S]*?\"submit_url\"[\\s\\S]*?\\}".toRegex()
-        jsonPattern.find(html)?.let {
-            return it.value
-        }
-
-        // 方案 3：如果页面本身就是纯 JSON
-        if (html.trim().startsWith("{")) {
-            return html.trim()
-        }
-
         return null
     }
 
     /**
-     * 从解码后的 HTML 内容中提取纯 JSON
-     * 微云页面的 html_content 包含 <div> 标签包裹的 JSON
-     * 且 URL 可能被自动转换为超链接 <a href="...">...</a>
+     * 策略 3：从 <pre> 或 <code> 标签中提取
+     */
+    private fun extractFromPreCodeTags(html: String): String? {
+        val prePattern = "<(?:pre|code)[^>]*>([\\s\\S]*?)</(?:pre|code)>".toRegex(RegexOption.IGNORE_CASE)
+        prePattern.findAll(html).forEach { match ->
+            val content = match.groupValues[1]
+                .replace("&lt;", "<")
+                .replace("&gt;", ">")
+                .replace("&amp;", "&")
+                .replace("&quot;", "\"")
+                .trim()
+            
+            if (content.startsWith("{")) {
+                return content
+            }
+            val jsonStart = content.indexOf("{")
+            val jsonEnd = content.lastIndexOf("}")
+            if (jsonStart >= 0 && jsonEnd > jsonStart) {
+                return content.substring(jsonStart, jsonEnd + 1)
+            }
+        }
+        return null
+    }
+
+    /**
+     * 策略 4：从 <script> 标签中提取 JSON 变量
+     */
+    private fun extractFromScriptTags(html: String): String? {
+        val scriptPattern = "<script[^>]*>([\\s\\S]*?)</script>".toRegex(RegexOption.IGNORE_CASE)
+        scriptPattern.findAll(html).forEach { match ->
+            val scriptContent = match.groupValues[1]
+            
+            // 查找 var/const/let xxx = {...}; 格式
+            val varPattern = "(?:var|const|let)\\s+\\w+\\s*=\\s*(\\{[\\s\\S]*?\});".toRegex()
+            varPattern.find(scriptContent)?.let { varMatch ->
+                return varMatch.groupValues[1]
+            }
+            
+            // 查找 JSON.parse('...') 或 JSON.parse("...")
+            val parsePattern = "JSON\\.parse\\s*\\(\\s*['\"]([\\s\\S]*?)['\"]\\s*\\)".toRegex()
+            parsePattern.find(scriptContent)?.let { parseMatch ->
+                val jsonStr = parseMatch.groupValues[1]
+                    .replace("\\'", "'")
+                    .replace("\\\"", "\"")
+                    .replace("\\\\", "\\")
+                return jsonStr
+            }
+        }
+        return null
+    }
+
+    /**
+     * 策略 5：JSONP 格式 callback({...})
+     */
+    private fun extractFromJsonp(html: String): String? {
+        val jsonpPattern = "\\w+\\s*\\(\\s*(\\{[\\s\\S]*?\})\\s*\\)".toRegex()
+        jsonpPattern.find(html)?.let { match ->
+            return match.groupValues[1]
+        }
+        return null
+    }
+
+    /**
+     * 策略 6：从纯文本中搜索 JSON 对象
+     */
+    private fun extractFromRawText(html: String): String? {
+        // 去掉 HTML 标签
+        val textOnly = html.replace("<[^>]+>".toRegex(), " ")
+            .replace("&nbsp;", " ")
+            .replace("&lt;", "<")
+            .replace("&gt;", ">")
+            .replace("&amp;", "&")
+            .replace("&quot;", "\"")
+            .trim()
+        
+        // 查找 { "submit_url": ... } 格式的 JSON
+        val jsonPattern = "\\{[\\s\\S]*?\"submit_url\"[\\s\\S]*?\\}".toRegex()
+        jsonPattern.find(textOnly)?.let { match ->
+            return match.value
+        }
+        
+        // 查找任何看起来像 JSON 的对象
+        val genericJsonPattern = "\\{[\\s\\S]*?\"[\\w_]+\"\\s*:[\\s\\S]*?\\}".toRegex()
+        genericJsonPattern.find(textOnly)?.let { match ->
+            return match.value
+        }
+        
+        return null
+    }
+
+    /**
+     * 从解码后的微云 HTML 内容中提取纯 JSON
      */
     private fun extractJsonFromDecodedHtml(decodedHtml: String): String? {
-        // 去掉 HTML 标签，保留文本内容
         var textContent = decodedHtml
             .replace("<div>", "\n")
             .replace("</div>", "")
@@ -171,10 +277,8 @@ class NetworkManager {
             .trim()
 
         // 去掉 URL 中的超链接标签 <a href="...">...</a>
-        // 保留 <a> 标签内的文本内容（即 URL 本身）
         val anchorPattern = "<a[^>]*href=\"([^\"]*)\"[^>]*>([^<]*)</a>".toRegex()
         textContent = anchorPattern.replace(textContent) { matchResult ->
-            // 返回 <a> 标签内的文本内容
             matchResult.groupValues[2]
         }
 
