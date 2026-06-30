@@ -2,8 +2,10 @@ package com.integral.assistant
 
 import android.content.Context
 import android.content.SharedPreferences
+import android.util.Base64
 import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
+import java.nio.charset.StandardCharsets
 import java.text.SimpleDateFormat
 import java.util.*
 
@@ -113,7 +115,8 @@ class ConfigManager(context: Context) {
     }
 
     /**
-     * 导出用户配置为 JSON 字符串（仅包含用户可手动设置的参数）
+     * 导出用户配置为 Base64 编码字符串
+     * 避免 JSON 中的特殊字符被网页转义或添加超链接
      */
     fun exportConfig(): String {
         val configMap = mapOf(
@@ -124,14 +127,25 @@ class ConfigManager(context: Context) {
             "delay_min" to getDelayMin().toString(),
             "delay_max" to getDelayMax().toString()
         )
-        return Gson().toJson(configMap)
+        val json = Gson().toJson(configMap)
+        // Base64 编码，避免特殊字符问题
+        return Base64.encodeToString(json.toByteArray(StandardCharsets.UTF_8), Base64.DEFAULT)
     }
 
     /**
-     * 从 JSON 字符串导入用户配置
+     * 从字符串导入用户配置
+     * 先尝试 Base64 解码，失败则尝试直接解析 JSON
      */
-    fun importConfig(jsonString: String): Boolean {
+    fun importConfig(configString: String): Boolean {
         return try {
+            val jsonString = if (isBase64(configString)) {
+                // Base64 解码
+                String(Base64.decode(configString, Base64.DEFAULT), StandardCharsets.UTF_8)
+            } else {
+                // 直接当作 JSON
+                configString
+            }
+
             val type = object : TypeToken<Map<String, String>>() {}.type
             val configMap: Map<String, String> = Gson().fromJson(jsonString, type)
 
@@ -144,6 +158,18 @@ class ConfigManager(context: Context) {
 
             true
         } catch (e: Exception) {
+            false
+        }
+    }
+
+    /**
+     * 判断字符串是否为 Base64 编码
+     */
+    private fun isBase64(str: String): Boolean {
+        return try {
+            Base64.decode(str, Base64.DEFAULT)
+            true
+        } catch (e: IllegalArgumentException) {
             false
         }
     }

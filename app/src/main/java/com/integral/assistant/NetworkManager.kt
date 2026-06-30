@@ -16,6 +16,8 @@ import com.google.gson.Gson
 import com.google.gson.JsonObject
 import com.google.gson.reflect.TypeToken
 import java.io.IOException
+import android.util.Base64
+import java.nio.charset.StandardCharsets
 
 /**
  * 网络请求管理器 - 对应另一个 AI 的 safe_post 函数
@@ -118,6 +120,11 @@ class NetworkManager {
      * 按优先级尝试多种策略，哪个成功用哪个
      */
     private fun extractJsonFromHtml(html: String): String? {
+        // 策略 0：Base64 编码的内容（优先尝试）
+        extractBase64FromHtml(html)?.let { json ->
+            if (validateConfigJson(json)) return json
+        }
+
         // 策略 1：页面本身就是纯 JSON
         val trimmed = html.trim()
         if (trimmed.startsWith("{") && trimmed.endsWith("}")) {
@@ -149,6 +156,39 @@ class NetworkManager {
             if (validateConfigJson(json)) return json
         }
 
+        return null
+    }
+
+    /**
+     * 策略 0：提取 Base64 编码的内容
+     * 支持微云分享页面中的 Base64 文本
+     */
+    private fun extractBase64FromHtml(html: String): String? {
+        // 先去掉 HTML 标签
+        val textOnly = html.replace("<[^>]+>".toRegex(), " ")
+            .replace("&nbsp;", " ")
+            .replace("&lt;", "<")
+            .replace("&gt;", ">")
+            .replace("&amp;", "&")
+            .replace("&quot;", "\"")
+            .trim()
+        
+        // 查找看起来像 Base64 的字符串（连续字母数字+/=）
+        val base64Pattern = "[A-Za-z0-9+/]{20,}={0,2}".toRegex()
+        base64Pattern.findAll(textOnly).forEach { match ->
+            val base64Str = match.value.trim()
+            try {
+                // 尝试 Base64 解码
+                val decoded = String(Base64.decode(base64Str, Base64.DEFAULT), StandardCharsets.UTF_8)
+                // 验证解码后是否是有效的 JSON
+                if (decoded.trim().startsWith("{")) {
+                    return decoded
+                }
+            } catch (e: IllegalArgumentException) {
+                // 不是有效的 Base64，跳过
+            }
+        }
+        
         return null
     }
 
