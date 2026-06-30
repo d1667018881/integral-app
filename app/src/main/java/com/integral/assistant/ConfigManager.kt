@@ -2,6 +2,8 @@ package com.integral.assistant
 
 import android.content.Context
 import android.content.SharedPreferences
+import com.google.gson.Gson
+import com.google.gson.reflect.TypeToken
 import java.text.SimpleDateFormat
 import java.util.*
 
@@ -108,5 +110,49 @@ class ConfigManager(context: Context) {
         val lastDate = getLastDate()
         val today = getCurrentDateStr()
         return lastDate != today
+    }
+
+    /**
+     * 导出所有配置为 JSON 字符串
+     */
+    fun exportConfig(): String {
+        val configMap = mapOf(
+            "login_id" to getLoginId(),
+            "site_code" to getSiteCode(),
+            "integral_type" to getIntegralType(),
+            "submit_url" to getSubmitUrl(),
+            "query_url" to getQueryUrl(),
+            "max_attempts" to getMaxAttempts().toString(),
+            "delay_min" to getDelayMin().toString(),
+            "delay_max" to getDelayMax().toString(),
+            "resource_id" to getResourceId().toString(),
+            "last_date" to getLastDate()
+        )
+        return Gson().toJson(configMap)
+    }
+
+    /**
+     * 从 JSON 字符串导入配置
+     */
+    fun importConfig(jsonString: String): Boolean {
+        return try {
+            val type = object : TypeToken<Map<String, String>>() {}.type
+            val configMap: Map<String, String> = Gson().fromJson(jsonString, type)
+
+            configMap["login_id"]?.let { saveLoginId(it) }
+            configMap["site_code"]?.let { saveSiteCode(it) }
+            configMap["integral_type"]?.let { saveIntegralType(it) }
+            configMap["submit_url"]?.let { saveSubmitUrl(it) }
+            configMap["query_url"]?.let { saveQueryUrl(it) }
+            configMap["max_attempts"]?.toIntOrNull()?.let { saveMaxAttempts(it) }
+            configMap["delay_min"]?.toIntOrNull()?.let { saveDelayMin(it) }
+            configMap["delay_max"]?.toIntOrNull()?.let { saveDelayMax(it) }
+            configMap["resource_id"]?.toIntOrNull()?.let { saveResourceId(it) }
+            configMap["last_date"]?.let { saveLastDate(it) }
+
+            true
+        } catch (e: Exception) {
+            false
+        }
     }
 }

@@ -1,5 +1,8 @@
 package com.integral.assistant
 
+import android.content.ClipData
+import android.content.ClipboardManager
+import android.content.Context
 import android.os.Bundle
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
@@ -35,6 +38,16 @@ class SettingsActivity : AppCompatActivity() {
         // 重置按钮
         binding.btnReset.setOnClickListener {
             resetToDefault()
+        }
+
+        // 备份按钮 — 导出配置到剪贴板
+        binding.btnBackup.setOnClickListener {
+            backupConfig()
+        }
+
+        // 恢复按钮 — 从输入框导入配置
+        binding.btnRestore.setOnClickListener {
+            restoreConfig()
         }
     }
 
@@ -86,6 +99,43 @@ class SettingsActivity : AppCompatActivity() {
         configManager.resetToDefault()
         loadSettings()
         showToast("🔄 已恢复默认设置（工号保留）")
+    }
+
+    /**
+     * 备份配置 — 导出为 JSON 并复制到剪贴板
+     */
+    private fun backupConfig() {
+        val json = configManager.exportConfig()
+
+        // 复制到剪贴板
+        val clipboard = getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+        val clip = ClipData.newPlainText("积分助手配置", json)
+        clipboard.setPrimaryClip(clip)
+
+        // 显示配置数据在输入框中（方便用户查看）
+        binding.inputBackupData.setText(json)
+
+        showToast("✅ 配置已复制到剪贴板，可粘贴保存")
+    }
+
+    /**
+     * 恢复配置 — 从输入框解析 JSON 并导入
+     */
+    private fun restoreConfig() {
+        val jsonString = binding.inputBackupData.text.toString().trim()
+
+        if (jsonString.isEmpty()) {
+            showToast("❌ 请先粘贴配置数据")
+            return
+        }
+
+        val success = configManager.importConfig(jsonString)
+        if (success) {
+            loadSettings()
+            showToast("✅ 配置已恢复")
+        } else {
+            showToast("❌ 配置格式错误，恢复失败")
+        }
     }
 
     private fun showToast(message: String) {
