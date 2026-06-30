@@ -26,6 +26,17 @@ class SettingsActivity : AppCompatActivity() {
 
         setupUI()
         loadSettings()
+        loadVersion()
+    }
+
+    private fun loadVersion() {
+        try {
+            val packageInfo = packageManager.getPackageInfo(packageName, 0)
+            val versionName = packageInfo.versionName
+            binding.tvVersion.text = "版本 $versionName"
+        } catch (e: Exception) {
+            binding.tvVersion.text = "版本未知"
+        }
     }
 
     private fun setupUI() {
