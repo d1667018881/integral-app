@@ -26,7 +26,7 @@
                 android:text="⚡ 积分助手"
                 android:textSize="22sp"
                 android:textStyle="bold"
-                android:textColor="#4099FF"/>
+                android:textColor="#06B6D4"/>
 
             <com.google.android.material.button.MaterialButton
                 android:id="@+id/btnSettings"
@@ -43,7 +43,7 @@
             android:layout_height="wrap_content"
             android:text="工号"
             android:textSize="14sp"
-            android:textColor="#999999"
+            android:textColor="#64748B"
             android:layout_marginBottom="8dp"/>
 
         <com.google.android.material.textfield.TextInputEditText
@@ -51,8 +51,8 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:hint="请输入工号"
-            android:textColor="#FFFFFF"
-            android:textColorHint="#666666"
+            android:textColor="#1E293B"
+            android:textColorHint="#94A3B8"
             android:inputType="number"
             android:background="@drawable/edittext_background"
             android:padding="12dp"
@@ -65,7 +65,7 @@
             android:layout_height="wrap_content"
             android:text="目标积分"
             android:textSize="14sp"
-            android:textColor="#999999"
+            android:textColor="#64748B"
             android:layout_marginBottom="8dp"/>
 
         <com.google.android.material.textfield.TextInputEditText
@@ -73,8 +73,8 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:hint="请输入目标积分"
-            android:textColor="#FFFFFF"
-            android:textColorHint="#666666"
+            android:textColor="#1E293B"
+            android:textColorHint="#94A3B8"
             android:inputType="number"
             android:text="100"
             android:background="@drawable/edittext_background"
@@ -97,7 +97,7 @@
                 android:layout_marginEnd="8dp"
                 android:text="▶ 开始执行"
                 android:textSize="16sp"
-                app:backgroundTint="#2EC760"/>
+                app:backgroundTint="#22C55E"/>
 
             <com.google.android.material.button.MaterialButton
                 android:id="@+id/btnStop"
@@ -128,7 +128,7 @@
             android:layout_height="wrap_content"
             android:text="📋 运行日志"
             android:textSize="14sp"
-            android:textColor="#999999"
+            android:textColor="#64748B"
             android:layout_marginBottom="8dp"/>
 
         <TextView
@@ -137,7 +137,7 @@
             android:layout_height="wrap_content"
             android:text="等待执行..."
             android:textSize="12sp"
-            android:textColor="#D9D9DE"
+            android:textColor="#1E293B"
             android:background="@drawable/log_background"
             android:padding="12dp"
             android:minHeight="200dp"
