@@ -12,30 +12,29 @@
         android:padding="16dp">
 
         <!-- 顶部导航栏 -->
-        <LinearLayout
+        <RelativeLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:orientation="horizontal"
-            android:gravity="center_vertical"
             android:layout_marginBottom="24dp">
 
             <com.google.android.material.button.MaterialButton
                 android:id="@+id/btnBack"
                 android:layout_width="wrap_content"
                 android:layout_height="40dp"
+                android:layout_alignParentStart="true"
+                android:layout_centerVertical="true"
                 android:text="← 返回"
                 android:textSize="14sp"
                 style="@style/Widget.Material3.Button.OutlinedButton"/>
 
             <TextView
-                android:layout_width="0dp"
+                android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_weight="1"
+                android:layout_centerInParent="true"
                 android:text="⚙ 设置"
                 android:textSize="20sp"
-                android:textStyle="bold"
-                android:layout_marginStart="16dp"/>
-        </LinearLayout>
+                android:textStyle="bold"/>
+        </RelativeLayout>
 
         <!-- 接口设置 -->
         <TextView
@@ -43,7 +42,7 @@
             android:layout_height="wrap_content"
             android:text="🌐 接口设置"
             android:textSize="16sp"
-            android:textColor="#4099FF"
+            android:textColor="#06B6D4"
             android:textStyle="bold"
             android:layout_marginBottom="12dp"/>
 
@@ -114,7 +113,7 @@
             android:layout_height="wrap_content"
             android:text="🔧 执行设置"
             android:textSize="16sp"
-            android:textColor="#4099FF"
+            android:textColor="#06B6D4"
             android:textStyle="bold"
             android:layout_marginBottom="12dp"/>
 
@@ -217,7 +216,7 @@
             android:layout_height="wrap_content"
             android:text="📦 备份与恢复"
             android:textSize="16sp"
-            android:textColor="#4099FF"
+            android:textColor="#06B6D4"
             android:textStyle="bold"
             android:layout_marginBottom="12dp"/>
 
@@ -279,7 +278,7 @@
             android:layout_height="50dp"
             android:text="💾 保存设置"
             android:textSize="16sp"
-            app:backgroundTint="#2EC760"
+            app:backgroundTint="#22C55E"
             android:layout_marginBottom="12dp"/>
 
         <!-- 重置按钮 -->
