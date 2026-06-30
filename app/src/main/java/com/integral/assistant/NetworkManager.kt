@@ -156,7 +156,7 @@ class NetworkManager {
      * 策略 2：微云分享页面
      */
     private fun extractFromWeiyunHtml(html: String): String? {
-        val htmlContentPattern = ""html_content":"([^"]+)""".toRegex()
+        val htmlContentPattern = "\"html_content\":\"([^\"]+)\"".toRegex()
         htmlContentPattern.find(html)?.let { match ->
             val encodedJson = match.groupValues[1]
             val decodedJson = encodedJson
@@ -207,7 +207,7 @@ class NetworkManager {
             val scriptContent = match.groupValues[1]
             
             // 查找 var/const/let xxx = {...}; 格式
-            val varPattern = "(?:var|const|let)\\s+\\w+\\s*=\\s*(\\{[\\s\\S]*?\});".toRegex()
+            val varPattern = "(?:var|const|let)\\s+\\w+\\s*=\\s*(\\{[\\s\\S]*?\\});".toRegex()
             varPattern.find(scriptContent)?.let { varMatch ->
                 return varMatch.groupValues[1]
             }
@@ -229,7 +229,7 @@ class NetworkManager {
      * 策略 5：JSONP 格式 callback({...})
      */
     private fun extractFromJsonp(html: String): String? {
-        val jsonpPattern = "\\w+\\s*\\(\\s*(\\{[\\s\\S]*?\})\\s*\\)".toRegex()
+        val jsonpPattern = "\\w+\\s*\\(\\s*(\\{[\\s\\S]*?\\})\\s*\\)".toRegex()
         jsonpPattern.find(html)?.let { match ->
             return match.groupValues[1]
         }
