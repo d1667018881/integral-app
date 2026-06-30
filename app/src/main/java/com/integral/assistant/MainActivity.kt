@@ -223,7 +223,7 @@ class MainActivity : AppCompatActivity() {
 
         var attempt = 1
 
-        while (isActive && currentScore < targetScore && attempt <= maxAttempts && !stopRequested) {
+        while (coroutineContext.isActive && currentScore < targetScore && attempt <= maxAttempts && !stopRequested) {
             val delaySeconds = (delayMin..delayMax).random()
 
             // 更新服务状态（供 Activity 恢复时读取）
@@ -237,7 +237,7 @@ class MainActivity : AppCompatActivity() {
 
             // 倒计时等待（每秒检查一次停止请求，动态显示剩余秒数）
             var waited = 0
-            while (isActive && waited < delaySeconds && !stopRequested) {
+            while (coroutineContext.isActive && waited < delaySeconds && !stopRequested) {
                 delay(1000)
                 waited++
                 val remaining = delaySeconds - waited
@@ -245,7 +245,7 @@ class MainActivity : AppCompatActivity() {
                 updateStatus("⏳ 第 $attempt 次 等待 ${remaining}s")
             }
 
-            if (!isActive || stopRequested) break
+            if (!coroutineContext.isActive || stopRequested) break
 
             IntegralService.remainingSeconds = 0
             updateStatus("🔄 第 $attempt 次 执行中...")
