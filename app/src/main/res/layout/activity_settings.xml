@@ -211,38 +211,6 @@
                 android:gravity="end"/>
         </LinearLayout>
 
-        <!-- 从网络导入 -->
-        <TextView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="🌐 从网络导入"
-            android:textSize="16sp"
-            android:textColor="#4099FF"
-            android:textStyle="bold"
-            android:layout_marginBottom="12dp"/>
-
-        <com.google.android.material.textfield.TextInputEditText
-            android:id="@+id/inputImportUrl"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:hint="粘贴分享链接（如微云分享）"
-            android:textColor="#FFFFFF"
-            android:textColorHint="#666666"
-            android:background="@drawable/edittext_background"
-            android:padding="12dp"
-            android:textSize="14sp"
-            android:layout_marginBottom="12dp"/>
-
-        <com.google.android.material.button.MaterialButton
-            android:id="@+id/btnImportFromUrl"
-            android:layout_width="match_parent"
-            android:layout_height="50dp"
-            android:text="🔗 从链接导入"
-            android:textSize="16sp"
-            style="@style/Widget.Material3.Button.TonalButton"
-            app:backgroundTint="#9C27B0"
-            android:layout_marginBottom="16dp"/>
-
         <!-- 备份与恢复 -->
         <TextView
             android:layout_width="match_parent"
@@ -256,7 +224,7 @@
         <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="配置数据（导出时自动填充，恢复时在此粘贴）"
+            android:text="配置数据（粘贴分享链接或配置文本）"
             android:textSize="13sp"
             android:textColor="#999999"
             android:layout_marginBottom="4dp"/>
@@ -265,7 +233,7 @@
             android:id="@+id/inputBackupData"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:hint="点击导出配置后，JSON 数据将显示在这里..."
+            android:hint="粘贴分享链接或配置数据..."
             android:textColor="#FFFFFF"
             android:textColorHint="#666666"
             android:background="@drawable/edittext_background"

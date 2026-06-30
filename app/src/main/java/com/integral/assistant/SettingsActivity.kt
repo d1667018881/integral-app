@@ -44,17 +44,12 @@ class SettingsActivity : AppCompatActivity() {
             resetToDefault()
         }
 
-        // 从网络导入按钮
-        binding.btnImportFromUrl.setOnClickListener {
-            importFromUrl()
-        }
-
         // 备份按钮 — 导出配置到剪贴板
         binding.btnBackup.setOnClickListener {
             backupConfig()
         }
 
-        // 恢复按钮 — 从输入框导入配置
+        // 恢复按钮 — 从输入框导入配置（支持链接和直接粘贴）
         binding.btnRestore.setOnClickListener {
             restoreConfig()
         }
@@ -111,41 +106,67 @@ class SettingsActivity : AppCompatActivity() {
     }
 
     /**
-     * 从网络链接导入配置
+     * 备份配置 — 导出为 Base64 并复制到剪贴板
      */
-    private fun importFromUrl() {
-        val url = binding.inputImportUrl.text.toString().trim()
+    private fun backupConfig() {
+        val base64Str = configManager.exportConfig()
 
-        if (url.isEmpty()) {
-            showToast("❌ 请先输入分享链接")
+        // 复制到剪贴板
+        val clipboard = getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+        val clip = ClipData.newPlainText("积分助手配置", base64Str)
+        clipboard.setPrimaryClip(clip)
+
+        // 显示配置数据在输入框中（方便用户查看）
+        binding.inputBackupData.setText(base64Str)
+
+        showToast("✅ 配置已复制到剪贴板，可粘贴保存")
+    }
+
+    /**
+     * 恢复配置 — 智能识别输入内容
+     * - 如果是 URL（以 http/https 开头）→ 从网络获取
+     * - 否则直接解析为配置数据（Base64 或 JSON）
+     */
+    private fun restoreConfig() {
+        val input = binding.inputBackupData.text.toString().trim()
+
+        if (input.isEmpty()) {
+            showToast("❌ 请先粘贴分享链接或配置数据")
             return
         }
 
-        showToast("🔄 正在获取配置...")
+        // 判断是否为 URL
+        if (input.startsWith("http://") || input.startsWith("https://")) {
+            importFromUrl(input)
+        } else {
+            // 直接解析配置数据
+            parseConfigData(input)
+        }
+    }
+
+    /**
+     * 从网络链接导入配置
+     */
+    private fun importFromUrl(url: String) {
+        showToast("🔄 正在从链接获取配置...")
 
         lifecycleScope.launch {
             try {
-                // 从网页获取 JSON
-                val jsonString = networkManager.fetchConfigFromUrl(url)
+                // 从网页获取配置
+                val configString = networkManager.fetchConfigFromUrl(url)
 
-                if (jsonString == null) {
+                if (configString == null) {
                     showToast("❌ 无法从链接获取配置")
                     return@launch
                 }
 
-                // 验证 JSON 是否有效
-                if (!networkManager.validateConfigJson(jsonString)) {
-                    showToast("❌ 链接内容不包含有效配置")
-                    return@launch
-                }
-
                 // 导入配置
-                val success = configManager.importConfig(jsonString)
+                val success = configManager.importConfig(configString)
                 if (success) {
                     loadSettings()
-                    // 将获取到的 JSON 显示在输入框中
-                    binding.inputBackupData.setText(jsonString)
-                    showToast("✅ 从网络导入成功")
+                    // 将获取到的配置显示在输入框中
+                    binding.inputBackupData.setText(configString)
+                    showToast("✅ 从链接导入成功")
                 } else {
                     showToast("❌ 配置解析失败")
                 }
@@ -156,34 +177,10 @@ class SettingsActivity : AppCompatActivity() {
     }
 
     /**
-     * 备份配置 — 导出为 JSON 并复制到剪贴板
+     * 直接解析配置数据（Base64 或 JSON）
      */
-    private fun backupConfig() {
-        val json = configManager.exportConfig()
-
-        // 复制到剪贴板
-        val clipboard = getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-        val clip = ClipData.newPlainText("积分助手配置", json)
-        clipboard.setPrimaryClip(clip)
-
-        // 显示配置数据在输入框中（方便用户查看）
-        binding.inputBackupData.setText(json)
-
-        showToast("✅ 配置已复制到剪贴板，可粘贴保存")
-    }
-
-    /**
-     * 恢复配置 — 从输入框解析 JSON 并导入
-     */
-    private fun restoreConfig() {
-        val jsonString = binding.inputBackupData.text.toString().trim()
-
-        if (jsonString.isEmpty()) {
-            showToast("❌ 请先粘贴配置数据")
-            return
-        }
-
-        val success = configManager.importConfig(jsonString)
+    private fun parseConfigData(configString: String) {
+        val success = configManager.importConfig(configString)
         if (success) {
             loadSettings()
             showToast("✅ 配置已恢复")
