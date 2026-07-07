@@ -242,7 +242,7 @@ class MainActivity : AppCompatActivity() {
 
             appendLog("─── 第 $attempt 次（剩余 ${maxAttempts - attempt} 次）───")
             appendLog("⏳ 等待 $delaySeconds 秒...")
-            updateStatus("⏳ 第 $attempt 次 等待 ${delaySeconds}s")
+            updateStatus("⏳ 第 $attempt 次 等待 ${delaySeconds}s ｜ 当前积分 $currentScore")
 
             // 倒计时等待（每秒检查一次停止请求，动态显示剩余秒数）
             var waited = 0
@@ -251,13 +251,13 @@ class MainActivity : AppCompatActivity() {
                 waited++
                 val remaining = delaySeconds - waited
                 IntegralService.remainingSeconds = remaining
-                updateStatus("⏳ 第 $attempt 次 等待 ${remaining}s")
+                updateStatus("⏳ 第 $attempt 次 等待 ${remaining}s ｜ 当前积分 $currentScore")
             }
 
             if (!coroutineContext.isActive || stopRequested) break
 
             IntegralService.remainingSeconds = 0
-            updateStatus("🔄 第 $attempt 次 执行中...")
+            updateStatus("🔄 第 $attempt 次 执行中 ｜ 当前积分 $currentScore")
 
             try {
                 // 检查是否需要跨日重置
@@ -292,12 +292,16 @@ class MainActivity : AppCompatActivity() {
                 if (newScore <= currentScore) {
                     appendLog("⚠ 积分未增长 ($newScore)，可能已达上限")
                     currentScore = newScore
+                    IntegralService.currentScore = currentScore
+                    updateStatus("⚠ 积分未增长 ｜ 当前积分 $currentScore")
                     attempt++
                     continue
                 }
 
                 currentScore = newScore
+                IntegralService.currentScore = currentScore
                 appendLog("📈 当前积分：$currentScore")
+                updateStatus("📈 当前积分：$currentScore")
 
                 // 检查是否达标
                 if (currentScore >= targetScore) {
