@@ -36,6 +36,9 @@ class IntegralService : Service() {
         @Volatile var currentAttempt: Int = 0
         @Volatile var maxAttempts: Int = 0
         @Volatile var currentScore: Int = 0
+
+        // 运行日志缓存（即使 Activity 被销毁重建也能恢复）
+        @Volatile var logContent: String = ""
     }
 
     private var wakeLock: PowerManager.WakeLock? = null
@@ -123,10 +126,16 @@ class IntegralService : Service() {
     }
 
     private fun createNotification(): Notification {
+        // 复用已存在的 MainActivity 实例，而不是新建一个
+        // SINGLE_TOP + CLEAR_TOP：若 Activity 已在栈顶则复用（触发 onNewIntent），
+        // 否则将其提到前台并清理其上方的其他页面（如设置页）
+        val intent = Intent(this, MainActivity::class.java).apply {
+            flags = Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP
+        }
         val pendingIntent = PendingIntent.getActivity(
             this,
             0,
-            Intent(this, MainActivity::class.java),
+            intent,
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
         )
 

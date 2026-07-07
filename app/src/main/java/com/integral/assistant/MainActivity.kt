@@ -53,6 +53,7 @@ class MainActivity : AppCompatActivity() {
         // 恢复服务中的实时状态（倒计时、进度等）
         if (isRunning) {
             restoreServiceState()
+            restoreLog()
         }
     }
 
@@ -63,6 +64,13 @@ class MainActivity : AppCompatActivity() {
             updateStatus("⏳ 第 $attempt 次 等待 ${remaining}s")
         } else {
             updateStatus(IntegralService.statusText)
+        }
+    }
+
+    // 从静态缓存恢复运行日志（Activity 被销毁重建时也能还原）
+    private fun restoreLog() {
+        if (IntegralService.logContent.isNotEmpty()) {
+            binding.tvLog.text = IntegralService.logContent
         }
     }
 
@@ -354,7 +362,6 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun appendLog(message: String) {
-        if (isFinishing || isDestroyed) return
         runOnUiThread {
             val currentText = binding.tvLog.text.toString()
             val newText = if (currentText.isEmpty() || currentText == "等待执行...") {
@@ -365,11 +372,16 @@ class MainActivity : AppCompatActivity() {
             // 限制日志行数
             val lines = newText.split("\n")
             val limitedLines = if (lines.size > MAX_LOG_LINES) lines.takeLast(MAX_LOG_LINES) else lines
-            binding.tvLog.text = limitedLines.joinToString("\n")
+            val limitedText = limitedLines.joinToString("\n")
+            // 同步到静态缓存，供 Activity 重建后恢复
+            IntegralService.logContent = limitedText
+            if (isFinishing || isDestroyed) return@runOnUiThread
+            binding.tvLog.text = limitedText
         }
     }
 
     private fun clearLog() {
+        IntegralService.logContent = ""
         runOnUiThread {
             binding.tvLog.text = ""
         }
