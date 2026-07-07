@@ -28,6 +28,7 @@ class ConfigManager(context: Context) {
         const val DEFAULT_DELAY_MIN = 39
         const val DEFAULT_DELAY_MAX = 180
         const val RESOURCE_ID_RANGE = 100
+        const val DEFAULT_MODE = "reach" // reach=达标模式, increment=增加积分模式
 
         // 日期格式（兼容 API 24+）
         val DATE_FORMAT = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
@@ -42,6 +43,7 @@ class ConfigManager(context: Context) {
     fun getDelayMin(): Int = prefs.getInt("delay_min", DEFAULT_DELAY_MIN)
     fun getDelayMax(): Int = prefs.getInt("delay_max", DEFAULT_DELAY_MAX)
     fun getTargetScore(): Int = prefs.getInt("target_score", 100)
+    fun getMode(): String = prefs.getString("mode", DEFAULT_MODE) ?: DEFAULT_MODE
 
     fun saveLoginId(loginId: String) {
         prefs.edit().putString("login_id", loginId).apply()
@@ -63,6 +65,9 @@ class ConfigManager(context: Context) {
     }
     fun saveTargetScore(score: Int) {
         prefs.edit().putInt("target_score", score).apply()
+    }
+    fun saveMode(mode: String) {
+        prefs.edit().putString("mode", mode).apply()
     }
     fun saveDelayMin(delay: Int) {
         prefs.edit().putInt("delay_min", delay).apply()

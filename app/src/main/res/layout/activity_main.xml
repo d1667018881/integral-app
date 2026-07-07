@@ -59,8 +59,36 @@
             android:textSize="16sp"
             android:layout_marginBottom="16dp"/>
 
-        <!-- 目标积分输入 -->
+        <!-- 模式选择 -->
+        <RadioGroup
+            android:id="@+id/modeGroup"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:layout_marginBottom="8dp">
+
+            <RadioButton
+                android:id="@+id/modeReach"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="达标模式"
+                android:checked="true"
+                android:textColor="#1E293B"
+                android:textSize="14sp"/>
+
+            <RadioButton
+                android:id="@+id/modeIncrement"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="增加积分"
+                android:textColor="#1E293B"
+                android:textSize="14sp"
+                android:layout_marginStart="20dp"/>
+        </RadioGroup>
+
+        <!-- 目标积分 / 增加积分数 输入 -->
         <TextView
+            android:id="@+id/tvTargetLabel"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:text="目标积分"

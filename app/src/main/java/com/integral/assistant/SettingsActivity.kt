@@ -33,9 +33,9 @@ class SettingsActivity : AppCompatActivity() {
         try {
             val packageInfo = packageManager.getPackageInfo(packageName, 0)
             val versionName = packageInfo.versionName
-            binding.tvVersion.text = "版本 $versionName"
+            binding.tvVersion.text = "当前版本 V $versionName"
         } catch (e: Exception) {
-            binding.tvVersion.text = "版本未知"
+            binding.tvVersion.text = "当前版本 V 未知"
         }
     }
 

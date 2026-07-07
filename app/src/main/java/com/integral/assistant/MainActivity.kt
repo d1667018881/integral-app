@@ -125,6 +125,24 @@ class MainActivity : AppCompatActivity() {
             override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
             override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
         })
+
+        // 模式切换：达标模式 / 增加积分模式
+        binding.modeGroup.setOnCheckedChangeListener { _, checkedId ->
+            val mode = if (checkedId == R.id.modeIncrement) "increment" else "reach"
+            configManager.saveMode(mode)
+            updateTargetLabel(mode)
+        }
+    }
+
+    // 根据模式更新输入框标签与提示
+    private fun updateTargetLabel(mode: String) {
+        if (mode == "increment") {
+            binding.tvTargetLabel.text = "增加积分数"
+            binding.inputTargetScore.hint = "请输入要增加的分数"
+        } else {
+            binding.tvTargetLabel.text = "目标积分"
+            binding.inputTargetScore.hint = "请输入目标积分"
+        }
     }
 
     private fun loadSavedData() {
@@ -138,6 +156,14 @@ class MainActivity : AppCompatActivity() {
             binding.inputTargetScore.setText(savedTargetScore.toString())
             binding.inputTargetScore.setSelection(savedTargetScore.toString().length)
         }
+        // 恢复模式选择
+        val savedMode = configManager.getMode()
+        if (savedMode == "increment") {
+            binding.modeIncrement.isChecked = true
+        } else {
+            binding.modeReach.isChecked = true
+        }
+        updateTargetLabel(savedMode)
     }
 
     private fun requestPermissions() {
@@ -158,7 +184,9 @@ class MainActivity : AppCompatActivity() {
 
     private fun startExecution() {
         val loginId = binding.inputLoginId.text.toString().trim()
-        val targetScoreText = binding.inputTargetScore.text.toString().trim()
+        val inputText = binding.inputTargetScore.text.toString().trim()
+        val mode = configManager.getMode()
+        val incrementMode = mode == "increment"
 
         // 验证工号
         if (loginId.isEmpty()) {
@@ -167,17 +195,18 @@ class MainActivity : AppCompatActivity() {
             return
         }
 
-        // 验证目标积分
-        val targetScore = targetScoreText.toIntOrNull()
-        if (targetScore == null || targetScore <= 0) {
-            appendLog("❌ 请输入有效的目标积分！")
-            Toast.makeText(this, "请输入有效的目标积分", Toast.LENGTH_SHORT).show()
+        // 验证目标值（达标模式=目标积分，增加积分模式=要增加的分数）
+        val value = inputText.toIntOrNull()
+        if (value == null || value <= 0) {
+            val msg = if (incrementMode) "请输入有效的增加分数！" else "请输入有效的目标积分！"
+            appendLog("❌ $msg")
+            Toast.makeText(this, msg, Toast.LENGTH_SHORT).show()
             return
         }
 
-        // 保存工号与目标积分（与应用同生命周期，Activity 重建后可还原）
+        // 保存工号与目标值（与应用同生命周期，Activity 重建后可还原）
         configManager.saveLoginId(loginId)
-        configManager.saveTargetScore(targetScore)
+        configManager.saveTargetScore(value)
 
         // 启动前台服务
         val serviceIntent = Intent(this, IntegralService::class.java).apply {
@@ -200,8 +229,12 @@ class MainActivity : AppCompatActivity() {
             updateStatus("🔄 运行中")
 
             // 通过服务启动任务
+            // 达标模式：以输入值作为绝对目标
+            // 增加积分模式：输入值作为增量，运行时以「当前分+增量」为目标
+            val reachTarget = if (incrementMode) 0 else value
+            val increment = if (incrementMode) value else 0
             IntegralService.serviceInstance?.startTask {
-                runLoop(loginId, targetScore)
+                runLoop(loginId, reachTarget, incrementMode, increment)
             }
         }, SERVICE_START_DELAY_MS)
     }
@@ -224,7 +257,7 @@ class MainActivity : AppCompatActivity() {
         updateButtonState()
     }
 
-    private suspend fun runLoop(loginId: String, targetScore: Int) {
+    private suspend fun runLoop(loginId: String, reachTarget: Int, incrementMode: Boolean, increment: Int) {
         val config = ConfigManager(this)
         val submitUrl = config.getSubmitUrl()
         val queryUrl = config.getQueryUrl()
@@ -234,7 +267,6 @@ class MainActivity : AppCompatActivity() {
         val integralType = config.getIntegralType()
 
         appendLog("工号：$loginId")
-        appendLog("目标积分：$targetScore")
         appendLog("正在查询当前积分...")
 
         // 查询当前积分
@@ -248,6 +280,16 @@ class MainActivity : AppCompatActivity() {
         }
 
         appendLog("✅ 当前积分：$currentScore")
+
+        // 计算有效目标：增加积分模式 = 当前分 + 增量；达标模式 = 输入的绝对值
+        val targetScore = if (incrementMode) {
+            val t = currentScore + increment
+            appendLog("🎯 增加积分模式：目标 = 当前 $currentScore + 增加 $increment = $t")
+            t
+        } else {
+            appendLog("目标积分：$reachTarget")
+            reachTarget
+        }
 
         // 检查是否已达标
         if (currentScore >= targetScore) {
