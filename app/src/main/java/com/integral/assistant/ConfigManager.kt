@@ -41,6 +41,7 @@ class ConfigManager(context: Context) {
     fun getMaxAttempts(): Int = prefs.getInt("max_attempts", DEFAULT_MAX_ATTEMPTS)
     fun getDelayMin(): Int = prefs.getInt("delay_min", DEFAULT_DELAY_MIN)
     fun getDelayMax(): Int = prefs.getInt("delay_max", DEFAULT_DELAY_MAX)
+    fun getTargetScore(): Int = prefs.getInt("target_score", 100)
 
     fun saveLoginId(loginId: String) {
         prefs.edit().putString("login_id", loginId).apply()
@@ -59,6 +60,9 @@ class ConfigManager(context: Context) {
     }
     fun saveMaxAttempts(attempts: Int) {
         prefs.edit().putInt("max_attempts", attempts).apply()
+    }
+    fun saveTargetScore(score: Int) {
+        prefs.edit().putInt("target_score", score).apply()
     }
     fun saveDelayMin(delay: Int) {
         prefs.edit().putInt("delay_min", delay).apply()

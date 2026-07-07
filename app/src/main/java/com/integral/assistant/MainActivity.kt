@@ -30,6 +30,10 @@ class MainActivity : AppCompatActivity() {
         private const val PERMISSION_REQUEST_CODE = 1001
         private const val SERVICE_START_DELAY_MS = 500L
         private const val MAX_LOG_LINES = 300
+
+        // 指向当前存活（可见）的 Activity 实例。
+        // 后台任务的实时更新只打到这个实例，避免打到已销毁的旧实例
+        private var currentInstance: MainActivity? = null
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -47,6 +51,8 @@ class MainActivity : AppCompatActivity() {
 
     override fun onResume() {
         super.onResume()
+        // 标记自己为当前存活实例，后续实时更新都打到本实例
+        currentInstance = this
         // 同步服务状态
         isRunning = IntegralService.isServiceRunning
         updateButtonState()
@@ -57,11 +63,18 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    override fun onDestroy() {
+        super.onDestroy()
+        // 仅当自己仍是当前实例时才清空，避免误清掉新实例
+        if (currentInstance == this) currentInstance = null
+    }
+
     private fun restoreServiceState() {
         val remaining = IntegralService.remainingSeconds
         val attempt = IntegralService.currentAttempt
+        val score = IntegralService.currentScore
         if (remaining > 0) {
-            updateStatus("⏳ 第 $attempt 次 等待 ${remaining}s")
+            updateStatus("⏳ 第 $attempt 次 等待 ${remaining}s ｜ 当前积分 $score")
         } else {
             updateStatus(IntegralService.statusText)
         }
@@ -102,6 +115,16 @@ class MainActivity : AppCompatActivity() {
             override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
             override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
         })
+
+        // 目标积分输入框 - 自动保存（与应用同生命周期，重建后还原）
+        binding.inputTargetScore.addTextChangedListener(object : TextWatcher {
+            override fun afterTextChanged(s: Editable?) {
+                val text = s?.toString()?.trim() ?: ""
+                text.toIntOrNull()?.let { configManager.saveTargetScore(it) }
+            }
+            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
+            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
+        })
     }
 
     private fun loadSavedData() {
@@ -109,6 +132,11 @@ class MainActivity : AppCompatActivity() {
         if (savedLoginId.isNotEmpty()) {
             binding.inputLoginId.setText(savedLoginId)
             binding.inputLoginId.setSelection(savedLoginId.length)
+        }
+        val savedTargetScore = configManager.getTargetScore()
+        if (savedTargetScore > 0) {
+            binding.inputTargetScore.setText(savedTargetScore.toString())
+            binding.inputTargetScore.setSelection(savedTargetScore.toString().length)
         }
     }
 
@@ -147,8 +175,9 @@ class MainActivity : AppCompatActivity() {
             return
         }
 
-        // 保存工号
+        // 保存工号与目标积分（与应用同生命周期，Activity 重建后可还原）
         configManager.saveLoginId(loginId)
+        configManager.saveTargetScore(targetScore)
 
         // 启动前台服务
         val serviceIntent = Intent(this, IntegralService::class.java).apply {
@@ -337,6 +366,8 @@ class MainActivity : AppCompatActivity() {
 
     private fun stopService() {
         isRunning = false
+        // 立即把当前可见实例的按钮翻成"已停止"（任务在后台结束时也有效）
+        currentInstance?.updateButtonStateSafe(false)
         updateButtonState()
         
         val serviceIntent = Intent(this, IntegralService::class.java).apply {
@@ -346,19 +377,30 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun updateButtonState() {
+        val running = IntegralService.isServiceRunning
+        currentInstance?.updateButtonStateSafe(running)
+    }
+
+    private fun updateButtonStateSafe(running: Boolean) {
+        if (isFinishing || isDestroyed) return
         runOnUiThread {
-            binding.btnStart.isEnabled = !isRunning
-            binding.btnStart.alpha = if (isRunning) 0.4f else 1.0f
-            binding.btnStop.isEnabled = isRunning
-            binding.btnStop.alpha = if (isRunning) 1.0f else 0.4f
-            binding.inputLoginId.isEnabled = !isRunning
-            binding.inputTargetScore.isEnabled = !isRunning
+            binding.btnStart.isEnabled = !running
+            binding.btnStart.alpha = if (running) 0.4f else 1.0f
+            binding.btnStop.isEnabled = running
+            binding.btnStop.alpha = if (running) 1.0f else 0.4f
+            binding.inputLoginId.isEnabled = !running
+            binding.inputTargetScore.isEnabled = !running
         }
     }
 
     private fun updateStatus(status: String) {
         // 同步更新服务状态（即使界面销毁，也可以保留状态）
         IntegralService.statusText = status
+        // 实时刷新只打到当前存活的 Activity 实例，避免打到已销毁的旧实例
+        currentInstance?.setStatusTextSafe(status)
+    }
+
+    private fun setStatusTextSafe(status: String) {
         if (isFinishing || isDestroyed) return
         runOnUiThread {
             binding.tvStatus.text = status
@@ -366,6 +408,11 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun appendLog(message: String) {
+        currentInstance?.appendLogSafe(message)
+    }
+
+    private fun appendLogSafe(message: String) {
+        if (isFinishing || isDestroyed) return
         runOnUiThread {
             val currentText = binding.tvLog.text.toString()
             val newText = if (currentText.isEmpty() || currentText == "等待执行...") {
@@ -379,13 +426,17 @@ class MainActivity : AppCompatActivity() {
             val limitedText = limitedLines.joinToString("\n")
             // 同步到静态缓存，供 Activity 重建后恢复
             IntegralService.logContent = limitedText
-            if (isFinishing || isDestroyed) return@runOnUiThread
             binding.tvLog.text = limitedText
         }
     }
 
     private fun clearLog() {
         IntegralService.logContent = ""
+        currentInstance?.clearLogSafe()
+    }
+
+    private fun clearLogSafe() {
+        if (isFinishing || isDestroyed) return
         runOnUiThread {
             binding.tvLog.text = ""
         }
