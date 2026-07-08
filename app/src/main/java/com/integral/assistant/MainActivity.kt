@@ -242,7 +242,10 @@ class MainActivity : AppCompatActivity() {
     private fun stopExecution() {
         stopRequested = true
         isRunning = false
-        
+        // 立即把服务运行状态置为 false，让按钮/输入框马上恢复可操作
+        // （服务真正停止是异步的，不提前置位会导致 UI 仍停留在运行中状态）
+        IntegralService.isServiceRunning = false
+
         // 取消服务中的任务
         IntegralService.serviceInstance?.cancelTask()
         
@@ -408,7 +411,8 @@ class MainActivity : AppCompatActivity() {
 
     private fun stopService() {
         isRunning = false
-        // 立即把当前可见实例的按钮翻成"已停止"（任务在后台结束时也有效）
+        // 立即把服务运行状态置为 false，让当前可见实例的按钮马上恢复
+        IntegralService.isServiceRunning = false
         currentInstance?.updateButtonStateSafe(false)
         updateButtonState()
         
