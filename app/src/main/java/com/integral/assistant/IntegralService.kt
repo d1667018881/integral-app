@@ -13,6 +13,7 @@ import android.os.PowerManager
 import androidx.core.app.NotificationCompat
 import kotlinx.coroutines.*
 import kotlin.coroutines.coroutineContext
+import com.google.gson.Gson
 import java.util.Date
 import java.util.concurrent.ConcurrentHashMap
 
@@ -28,6 +29,8 @@ class IntegralService : Service() {
         const val NOTIFICATION_ID = 1
         const val ACTION_START = "ACTION_START"
         const val ACTION_STOP = "ACTION_STOP"
+        const val EXTRA_ACCOUNT = "extra_account"
+        const val EXTRA_ACCOUNT_ID = "extra_account_id"
         const val FOREGROUND_SERVICE_TYPE = android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE
 
         // 当前选中的账号（供通知展示其进度）
@@ -62,7 +65,6 @@ class IntegralService : Service() {
     private val jobs = ConcurrentHashMap<String, Job>()
 
     private lateinit var configManager: ConfigManager
-    private lateinit var networkManager: NetworkManager
     private lateinit var accountManager: AccountManager
 
     private var foregroundStarted = false
@@ -71,7 +73,6 @@ class IntegralService : Service() {
         super.onCreate()
         createNotificationChannel()
         configManager = ConfigManager(this)
-        networkManager = NetworkManager()
         accountManager = AccountManager(this)
         Companion.serviceInstance = this
     }
@@ -80,8 +81,29 @@ class IntegralService : Service() {
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         when (intent?.action) {
-            ACTION_START -> ensureForeground()
-            ACTION_STOP -> stopAll()
+            ACTION_START -> {
+                ensureForeground()
+                // 携带账号信息启动（前台服务启动后可能延迟就绪，改用 Intent 直驱，避免盲等待）
+                val accJson = intent.getStringExtra(EXTRA_ACCOUNT)
+                if (accJson != null) {
+                    try {
+                        val acc = Gson().fromJson(accJson, Account::class.java)
+                        startAccount(acc)
+                    } catch (e: Exception) {
+                        // 解析失败忽略
+                    }
+                }
+            }
+            ACTION_STOP -> {
+                val id = intent.getStringExtra(EXTRA_ACCOUNT_ID)
+                if (id != null) stopAccount(id) else stopAll()
+            }
+            else -> {
+                // 系统重启或未知意图：先确保前台（避免 "did not call startForeground" 崩溃），
+                // 再尝试恢复仍在运行（isRunning）的账号任务
+                ensureForeground()
+                resumeRunningTasks()
+            }
         }
         return START_STICKY
     }
@@ -98,15 +120,21 @@ class IntegralService : Service() {
         acquireWakeLock()
     }
 
-    /** 启动（或重启）某个账号的任务 */
+    /** 启动某个账号的任务（覆盖旧任务） */
     fun startAccount(account: Account) {
-        // 若已在运行，先取消旧任务（不在此删除 tasks/jobs，避免误删新任务）
+        // 若已在运行，先取消旧任务
         stopAccount(account.id)
         ensureForeground()
 
         val state = TaskState(isRunning = true, statusText = "🔄 运行中", logContent = "")
+        // 覆盖写入：重开同一账号会自然清空旧日志
         tasks[account.id] = state
+        launchJob(account, state)
+        updateNotification()
+    }
 
+    /** 启动一个账号协程，统一管理 finally 中的清理逻辑 */
+    private fun launchJob(account: Account, state: TaskState) {
         val job = serviceScope.launch {
             try {
                 runAccountLoop(account, state)
@@ -114,16 +142,16 @@ class IntegralService : Service() {
                 // 正常取消，忽略
             } finally {
                 state.isRunning = false
-                // 仅当本协程仍是该账号的当前任务时才清理，避免重启时误删新任务
+                // 仅当本协程仍是该账号的当前 Job 时才移除 jobs 引用，
+                // 避免重启时把新任务的引用误删（注意：不再删除 tasks，以便保留日志）
                 val selfJob = coroutineContext[Job]
                 if (jobs[account.id] == selfJob) {
-                    tasks.remove(account.id)
                     jobs.remove(account.id)
                 }
                 onStateChanged?.invoke(account.id)
                 updateNotification()
-                // 没有任何账号运行时，停止服务释放资源
-                if (tasks.isEmpty()) {
+                // 没有任何账号在运行时，停止服务释放资源（tasks 保留用于日志查看）
+                if (tasks.values.none { it.isRunning }) {
                     releaseWakeLock()
                     stopForeground(STOP_FOREGROUND_REMOVE)
                     stopSelf()
@@ -131,7 +159,26 @@ class IntegralService : Service() {
             }
         }
         jobs[account.id] = job
-        updateNotification()
+    }
+
+    /** 系统重启后，恢复 companion 中仍标记为运行中的任务 */
+    private fun resumeRunningTasks() {
+        val running = tasks.filterValues { it.isRunning }
+        if (running.isEmpty()) {
+            releaseWakeLock()
+            stopForeground(STOP_FOREGROUND_REMOVE)
+            stopSelf()
+            return
+        }
+        val accounts = accountManager.getAccounts()
+        running.forEach { (id, state) ->
+            val acc = accounts.firstOrNull { it.id == id }
+            if (acc == null) {
+                state.isRunning = false
+                return@forEach
+            }
+            launchJob(acc, state)
+        }
     }
 
     /** 停止某个账号的任务 */
@@ -151,7 +198,7 @@ class IntegralService : Service() {
 
     private suspend fun runAccountLoop(account: Account, state: TaskState) {
         val config = configManager
-        val net = networkManager
+        val net = NetworkManager
         val am = accountManager
 
         val submitUrl = config.getSubmitUrl()
@@ -245,7 +292,7 @@ class IntegralService : Service() {
                 val newScore = net.queryIntegral(loginId, queryUrl)
 
                 am.saveResourceId(account.id, newResourceId)
-                am.saveLastDate(account.id, ConfigManager.DATE_FORMAT.format(Date()))
+                am.saveLastDate(account.id, AccountManager.DATE_FORMAT.format(Date()))
 
                 if (newScore <= currentScore) {
                     currentScore = newScore
@@ -329,7 +376,7 @@ class IntegralService : Service() {
             .build()
     }
 
-    private fun updateNotification() {
+    internal fun updateNotification() {
         val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         notificationManager.notify(NOTIFICATION_ID, buildNotification())
     }
@@ -359,6 +406,9 @@ class IntegralService : Service() {
         super.onDestroy()
         serviceScope.cancel()
         releaseWakeLock()
+        // 进程内销毁时把残留任务标记为未运行（日志仍保留在 companion 中供下次查看），
+        // 避免重新打开 App 时显示“幽灵运行中”
+        tasks.values.forEach { it.isRunning = false }
         Companion.serviceInstance = null
     }
 }

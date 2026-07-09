@@ -7,13 +7,16 @@ import android.os.Build
 import android.os.Bundle
 import android.text.Editable
 import android.text.TextWatcher
+import android.text.method.ScrollingMovementMethod
 import android.widget.ArrayAdapter
 import android.widget.Toast
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
+import com.google.gson.Gson
 import com.integral.assistant.databinding.ActivityMainBinding
 import kotlinx.coroutines.*
+import java.util.UUID
 
 class MainActivity : AppCompatActivity() {
 
@@ -30,7 +33,6 @@ class MainActivity : AppCompatActivity() {
 
     companion object {
         private const val PERMISSION_REQUEST_CODE = 1001
-        private const val SERVICE_START_DELAY_MS = 500L
         private const val ADD_ACCOUNT_TAG = "＋ 添加账号"
     }
 
@@ -124,6 +126,9 @@ class MainActivity : AppCompatActivity() {
             startActivity(Intent(this, SettingsActivity::class.java))
         }
 
+        // 日志区域可滚动，便于回看长日志
+        binding.tvLog.movementMethod = ScrollingMovementMethod()
+
         // 账号切换
         binding.accountSpinner.onItemSelectedListener =
             object : android.widget.AdapterView.OnItemSelectedListener {
@@ -139,6 +144,7 @@ class MainActivity : AppCompatActivity() {
                             selectedAccount = acc
                             accountManager.setCurrentAccountId(acc.id)
                             IntegralService.selectedAccountId = acc.id
+                            IntegralService.serviceInstance?.updateNotification()
                             bindInputs()
                             renderState()
                         }
@@ -238,6 +244,7 @@ class MainActivity : AppCompatActivity() {
         // 启动/确保前台服务，再启动该账号任务
         val serviceIntent = Intent(this, IntegralService::class.java).apply {
             action = IntegralService.ACTION_START
+            putExtra(IntegralService.EXTRA_ACCOUNT, Gson().toJson(acc))
         }
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             startForegroundService(serviceIntent)
@@ -245,15 +252,20 @@ class MainActivity : AppCompatActivity() {
             startService(serviceIntent)
         }
 
-        android.os.Handler(mainLooper).postDelayed({
-            IntegralService.serviceInstance?.startAccount(acc)
-            renderState()
-        }, SERVICE_START_DELAY_MS)
+        renderState()
     }
 
     private fun stopSelectedAccount() {
         val acc = selectedAccount ?: return
-        IntegralService.serviceInstance?.stopAccount(acc.id)
+        val serviceIntent = Intent(this, IntegralService::class.java).apply {
+            action = IntegralService.ACTION_STOP
+            putExtra(IntegralService.EXTRA_ACCOUNT_ID, acc.id)
+        }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            startForegroundService(serviceIntent)
+        } else {
+            startService(serviceIntent)
+        }
         renderState()
     }
 
@@ -266,16 +278,22 @@ class MainActivity : AppCompatActivity() {
         }
         val state = IntegralService.tasks[acc.id]
         if (state != null && state.isRunning) {
-            binding.tvStatus.text = state.statusText
-            binding.tvLog.text = state.logContent
+            if (binding.tvStatus.text.toString() != state.statusText) {
+                binding.tvStatus.text = state.statusText
+            }
+            if (binding.tvLog.text.toString() != state.logContent) {
+                binding.tvLog.text = state.logContent
+            }
             updateButtons(running = true)
         } else {
-            binding.tvStatus.text = "⏸ 待命中"
-            // 停止后保留上一次日志内容，便于查看结果
-            if (state != null && state.logContent.isNotEmpty()) {
-                binding.tvLog.text = state.logContent
-            } else {
-                binding.tvLog.text = "等待执行..."
+            // 停止/完成后保留最终状态文案与日志，便于查看结果
+            val status = if (state != null) state.statusText else "⏸ 待命中"
+            if (binding.tvStatus.text.toString() != status) {
+                binding.tvStatus.text = status
+            }
+            val logText = if (state != null && state.logContent.isNotEmpty()) state.logContent else "等待执行..."
+            if (binding.tvLog.text.toString() != logText) {
+                binding.tvLog.text = logText
             }
             updateButtons(running = false)
         }
@@ -309,7 +327,7 @@ class MainActivity : AppCompatActivity() {
             .setPositiveButton("确定") { _, _ ->
                 val loginId = editText.text.toString().trim()
                 val acc = Account(
-                    id = "acc_${System.currentTimeMillis()}",
+                    id = "acc_${UUID.randomUUID()}",
                     loginId = loginId,
                     mode = "reach",
                     target = 100
@@ -319,6 +337,7 @@ class MainActivity : AppCompatActivity() {
                 selectedAccount = acc
                 accountManager.setCurrentAccountId(acc.id)
                 IntegralService.selectedAccountId = acc.id
+                IntegralService.serviceInstance?.updateNotification()
                 refreshAccountSpinner()
                 binding.accountSpinner.setSelection(accounts.indexOfFirst { it.id == acc.id })
                 bindInputs()
@@ -341,8 +360,11 @@ class MainActivity : AppCompatActivity() {
             .setPositiveButton("删除") { _, _ ->
                 accountManager.removeAccount(acc.id)
                 accounts.removeAll { it.id == acc.id }
+                IntegralService.tasks.remove(acc.id)
                 selectedAccount = accounts.firstOrNull()
                 selectedAccount?.let { accountManager.setCurrentAccountId(it.id) }
+                IntegralService.selectedAccountId = selectedAccount?.id
+                IntegralService.serviceInstance?.updateNotification()
                 refreshAccountSpinner()
                 bindInputs()
                 renderState()

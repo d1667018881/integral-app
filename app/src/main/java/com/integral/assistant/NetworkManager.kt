@@ -21,8 +21,9 @@ import java.nio.charset.StandardCharsets
 
 /**
  * 网络请求管理器 - 对应另一个 AI 的 safe_post 函数
+ * 以 object 单例形式复用同一 OkHttpClient 连接池
  */
-class NetworkManager {
+object NetworkManager {
 
     private val client: OkHttpClient by lazy {
         // 创建支持自签名的 OkHttpClient
@@ -73,6 +74,8 @@ class NetworkManager {
 
                     val response = client.newCall(request).execute()
                     response.use {
+                        // HTTP 4xx/5xx 也视为失败，触发重试逻辑
+                        if (!it.isSuccessful) throw IOException("HTTP ${it.code}")
                         it.body?.string() ?: throw IOException("Empty response")
                     }
                 }

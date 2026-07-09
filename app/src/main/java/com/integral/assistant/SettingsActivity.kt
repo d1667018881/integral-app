@@ -22,7 +22,7 @@ class SettingsActivity : AppCompatActivity() {
         setContentView(binding.root)
 
         configManager = ConfigManager(this)
-        networkManager = NetworkManager()
+        networkManager = NetworkManager
 
         setupUI()
         loadSettings()
