@@ -37,6 +37,41 @@
                 style="@style/Widget.Material3.Button.TonalButton"/>
         </LinearLayout>
 
+        <!-- 账号切换 -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:layout_marginBottom="16dp">
+
+            <Spinner
+                android:id="@+id/accountSpinner"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:textColor="#1E293B"
+                android:textSize="14sp" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btnAddAccount"
+                android:layout_width="wrap_content"
+                android:layout_height="40dp"
+                android:text="＋"
+                android:textSize="18sp"
+                android:layout_marginStart="8dp"
+                style="@style/Widget.Material3.Button.TonalButton"/>
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btnDelAccount"
+                android:layout_width="wrap_content"
+                android:layout_height="40dp"
+                android:text="－"
+                android:textSize="18sp"
+                android:layout_marginStart="8dp"
+                style="@style/Widget.Material3.Button.TonalButton"/>
+        </LinearLayout>
+
         <!-- 工号输入 -->
         <TextView
             android:layout_width="match_parent"

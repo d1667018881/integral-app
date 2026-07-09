@@ -7,33 +7,31 @@ import android.os.Build
 import android.os.Bundle
 import android.text.Editable
 import android.text.TextWatcher
+import android.widget.ArrayAdapter
 import android.widget.Toast
+import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
 import com.integral.assistant.databinding.ActivityMainBinding
 import kotlinx.coroutines.*
-import kotlin.coroutines.coroutineContext
-import java.util.Date
 
 class MainActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivityMainBinding
+    private lateinit var accountManager: AccountManager
     private lateinit var configManager: ConfigManager
-    private lateinit var networkManager: NetworkManager
 
-    @Volatile
-    private var isRunning = false
-    @Volatile
-    private var stopRequested = false
+    // 账号列表与当前选中账号
+    private var accounts: MutableList<Account> = mutableListOf()
+    private var selectedAccount: Account? = null
+
+    // 防抖：程序化设置输入框时不触发保存
+    private var isBinding = false
 
     companion object {
         private const val PERMISSION_REQUEST_CODE = 1001
         private const val SERVICE_START_DELAY_MS = 500L
-        private const val MAX_LOG_LINES = 300
-
-        // 指向当前存活（可见）的 Activity 实例。
-        // 后台任务的实时更新只打到这个实例，避免打到已销毁的旧实例
-        private var currentInstance: MainActivity? = null
+        private const val ADD_ACCOUNT_TAG = "＋ 添加账号"
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -41,100 +39,173 @@ class MainActivity : AppCompatActivity() {
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
+        accountManager = AccountManager(this)
         configManager = ConfigManager(this)
-        networkManager = NetworkManager()
 
+        loadAccounts()
         setupUI()
-        loadSavedData()
+        refreshAccountSpinner()
+        selectCurrentAccount()
         requestPermissions()
     }
 
     override fun onResume() {
         super.onResume()
-        // 标记自己为当前存活实例，后续实时更新都打到本实例
-        currentInstance = this
-        // 同步服务状态
-        isRunning = IntegralService.isServiceRunning
-        updateButtonState()
-        // 恢复服务中的实时状态（倒计时、进度等）
-        if (isRunning) {
-            restoreServiceState()
-            restoreLog()
+        // 接收服务状态变化，刷新选中账号界面
+        IntegralService.onStateChanged = { accountId ->
+            if (accountId == selectedAccount?.id) renderState()
         }
+        IntegralService.selectedAccountId = selectedAccount?.id
+        // 刷新一次（服务可能已在后台运行）
+        refreshSpinnerSelection()
+        renderState()
     }
 
     override fun onDestroy() {
         super.onDestroy()
-        // 仅当自己仍是当前实例时才清空，避免误清掉新实例
-        if (currentInstance == this) currentInstance = null
-    }
-
-    private fun restoreServiceState() {
-        val remaining = IntegralService.remainingSeconds
-        val attempt = IntegralService.currentAttempt
-        val score = IntegralService.currentScore
-        if (remaining > 0) {
-            updateStatus("⏳ 第 $attempt 次 等待 ${remaining}s ｜ 当前积分 $score")
-        } else {
-            updateStatus(IntegralService.statusText)
+        if (IntegralService.onStateChanged != null) {
+            IntegralService.onStateChanged = null
         }
     }
 
-    // 从静态缓存恢复运行日志（Activity 被销毁重建时也能还原）
-    private fun restoreLog() {
-        if (IntegralService.logContent.isNotEmpty()) {
-            binding.tvLog.text = IntegralService.logContent
+    // ---------------- 账号管理 ----------------
+
+    private fun loadAccounts() {
+        accounts = accountManager.getAccounts()
+        // 首次使用：从旧版共享配置迁移出一个默认账号
+        if (accounts.isEmpty()) {
+            val loginId = configManager.getLoginId()
+            val target = configManager.getTargetScore()
+            val mode = configManager.getMode()
+            val acc = Account(
+                id = "default",
+                loginId = loginId,
+                mode = mode,
+                target = if (target > 0) target else 100
+            )
+            accounts.add(acc)
+            accountManager.saveAccounts(accounts)
+            accountManager.setCurrentAccountId(acc.id)
         }
     }
+
+    private fun selectCurrentAccount() {
+        val curId = accountManager.getCurrentAccountId()
+        selectedAccount = accounts.firstOrNull { it.id == curId } ?: accounts.firstOrNull()
+        selectedAccount?.let { accountManager.setCurrentAccountId(it.id) }
+        bindInputs()
+        renderState()
+    }
+
+    private fun refreshAccountSpinner() {
+        val labels = accounts.map { acc ->
+            if (acc.loginId.isNotEmpty()) acc.loginId else "未设置工号"
+        }.toMutableList()
+        labels.add(ADD_ACCOUNT_TAG)
+        val adapter = ArrayAdapter(this, android.R.layout.simple_spinner_item, labels)
+        adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
+        binding.accountSpinner.adapter = adapter
+        // 选中当前账号
+        val index = accounts.indexOfFirst { it.id == selectedAccount?.id }
+        if (index >= 0) binding.accountSpinner.setSelection(index)
+    }
+
+    private fun refreshSpinnerSelection() {
+        val index = accounts.indexOfFirst { it.id == selectedAccount?.id }
+        if (index >= 0 && binding.accountSpinner.selectedItemPosition != index) {
+            binding.accountSpinner.setSelection(index)
+        }
+    }
+
+    // ---------------- UI ----------------
 
     private fun setupUI() {
-        // 设置按钮 → 跳转到设置页面
         binding.btnSettings.setOnClickListener {
-            val intent = Intent(this, SettingsActivity::class.java)
-            startActivity(intent)
+            startActivity(Intent(this, SettingsActivity::class.java))
         }
 
-        // 开始按钮
-        binding.btnStart.setOnClickListener {
-            startExecution()
-        }
+        // 账号切换
+        binding.accountSpinner.onItemSelectedListener =
+            object : android.widget.AdapterView.OnItemSelectedListener {
+                override fun onItemSelected(
+                    parent: android.widget.AdapterView<*>?,
+                    view: android.view.View?,
+                    position: Int,
+                    id: Long
+                ) {
+                    if (position < accounts.size) {
+                        val acc = accounts[position]
+                        if (acc.id != selectedAccount?.id) {
+                            selectedAccount = acc
+                            accountManager.setCurrentAccountId(acc.id)
+                            IntegralService.selectedAccountId = acc.id
+                            bindInputs()
+                            renderState()
+                        }
+                    } else {
+                        // 选中了“添加账号”
+                        showAddAccountDialog()
+                    }
+                }
 
-        // 停止按钮
-        binding.btnStop.setOnClickListener {
-            stopExecution()
-        }
+                override fun onNothingSelected(parent: android.widget.AdapterView<*>?) {}
+            }
 
-        // 工号输入框 - 自动保存
+        binding.btnAddAccount.setOnClickListener { showAddAccountDialog() }
+
+        binding.btnDelAccount.setOnClickListener { showDeleteAccountDialog() }
+
+        // 工号输入：实时保存到选中账号
         binding.inputLoginId.addTextChangedListener(object : TextWatcher {
             override fun afterTextChanged(s: Editable?) {
-                val text = s?.toString()?.trim() ?: ""
-                if (text.isNotEmpty()) {
-                    configManager.saveLoginId(text)
-                }
+                if (isBinding || selectedAccount == null) return
+                selectedAccount!!.loginId = s?.toString()?.trim() ?: ""
+                accountManager.saveAccounts(accounts)
             }
             override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
             override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
         })
 
-        // 目标积分输入框 - 自动保存（与应用同生命周期，重建后还原）
+        // 目标值输入：实时保存
         binding.inputTargetScore.addTextChangedListener(object : TextWatcher {
             override fun afterTextChanged(s: Editable?) {
-                val text = s?.toString()?.trim() ?: ""
-                text.toIntOrNull()?.let { configManager.saveTargetScore(it) }
+                if (isBinding || selectedAccount == null) return
+                val v = s?.toString()?.trim()?.toIntOrNull() ?: 0
+                selectedAccount!!.target = v
+                accountManager.saveAccounts(accounts)
             }
             override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
             override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
         })
 
-        // 模式切换：达标模式 / 增加积分模式
+        // 模式切换
         binding.modeGroup.setOnCheckedChangeListener { _, checkedId ->
-            val mode = if (checkedId == R.id.modeIncrement) "increment" else "reach"
-            configManager.saveMode(mode)
-            updateTargetLabel(mode)
+            if (selectedAccount == null) return@setOnCheckedChangeListener
+            selectedAccount!!.mode = if (checkedId == R.id.modeIncrement) "increment" else "reach"
+            updateTargetLabel(selectedAccount!!.mode)
+            accountManager.saveAccounts(accounts)
         }
+
+        binding.btnStart.setOnClickListener { startSelectedAccount() }
+        binding.btnStop.setOnClickListener { stopSelectedAccount() }
     }
 
-    // 根据模式更新输入框标签与提示
+    private fun bindInputs() {
+        val acc = selectedAccount ?: return
+        isBinding = true
+        binding.inputLoginId.setText(acc.loginId)
+        binding.inputLoginId.setSelection(acc.loginId.length)
+        if (acc.mode == "increment") {
+            binding.modeIncrement.isChecked = true
+        } else {
+            binding.modeReach.isChecked = true
+        }
+        updateTargetLabel(acc.mode)
+        binding.inputTargetScore.setText(acc.target.toString())
+        binding.inputTargetScore.setSelection(acc.target.toString().length)
+        isBinding = false
+    }
+
     private fun updateTargetLabel(mode: String) {
         if (mode == "increment") {
             binding.tvTargetLabel.text = "增加积分数"
@@ -145,290 +216,74 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private fun loadSavedData() {
-        val savedLoginId = configManager.getLoginId()
-        if (savedLoginId.isNotEmpty()) {
-            binding.inputLoginId.setText(savedLoginId)
-            binding.inputLoginId.setSelection(savedLoginId.length)
-        }
-        val savedTargetScore = configManager.getTargetScore()
-        if (savedTargetScore > 0) {
-            binding.inputTargetScore.setText(savedTargetScore.toString())
-            binding.inputTargetScore.setSelection(savedTargetScore.toString().length)
-        }
-        // 恢复模式选择
-        val savedMode = configManager.getMode()
-        if (savedMode == "increment") {
-            binding.modeIncrement.isChecked = true
-        } else {
-            binding.modeReach.isChecked = true
-        }
-        updateTargetLabel(savedMode)
-    }
+    // ---------------- 启动 / 停止 ----------------
 
-    private fun requestPermissions() {
-        val permissions = mutableListOf<String>()
-        
-        // Android 13+ 需要通知权限
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            if (ActivityCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) 
-                != PackageManager.PERMISSION_GRANTED) {
-                permissions.add(Manifest.permission.POST_NOTIFICATIONS)
-            }
-        }
-
-        if (permissions.isNotEmpty()) {
-            ActivityCompat.requestPermissions(this, permissions.toTypedArray(), PERMISSION_REQUEST_CODE)
-        }
-    }
-
-    private fun startExecution() {
-        val loginId = binding.inputLoginId.text.toString().trim()
-        val inputText = binding.inputTargetScore.text.toString().trim()
-        val mode = configManager.getMode()
-        val incrementMode = mode == "increment"
-
-        // 验证工号
-        if (loginId.isEmpty()) {
-            appendLog("❌ 请先输入工号！")
+    private fun startSelectedAccount() {
+        val acc = selectedAccount ?: return
+        // 确保最新输入已写入账号
+        acc.loginId = binding.inputLoginId.text.toString().trim()
+        if (acc.loginId.isEmpty()) {
             Toast.makeText(this, "请先输入工号", Toast.LENGTH_SHORT).show()
             return
         }
-
-        // 验证目标值（达标模式=目标积分，增加积分模式=要增加的分数）
-        val value = inputText.toIntOrNull()
-        if (value == null || value <= 0) {
-            val msg = if (incrementMode) "请输入有效的增加分数！" else "请输入有效的目标积分！"
-            appendLog("❌ $msg")
+        val v = binding.inputTargetScore.text.toString().trim().toIntOrNull()
+        if (v == null || v <= 0) {
+            val msg = if (acc.mode == "increment") "请输入有效的增加分数！" else "请输入有效的目标积分！"
             Toast.makeText(this, msg, Toast.LENGTH_SHORT).show()
             return
         }
+        acc.target = v
+        accountManager.saveAccounts(accounts)
 
-        // 保存工号与目标值（与应用同生命周期，Activity 重建后可还原）
-        configManager.saveLoginId(loginId)
-        configManager.saveTargetScore(value)
-
-        // 启动前台服务
+        // 启动/确保前台服务，再启动该账号任务
         val serviceIntent = Intent(this, IntegralService::class.java).apply {
             action = IntegralService.ACTION_START
         }
-        
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             startForegroundService(serviceIntent)
         } else {
             startService(serviceIntent)
         }
 
-        // 等待服务启动
         android.os.Handler(mainLooper).postDelayed({
-            // 开始执行任务
-            isRunning = true
-            stopRequested = false
-            updateButtonState()
-            clearLog()
-            updateStatus("🔄 运行中")
-
-            // 通过服务启动任务
-            // 达标模式：以输入值作为绝对目标
-            // 增加积分模式：输入值作为增量，运行时以「当前分+增量」为目标
-            val reachTarget = if (incrementMode) 0 else value
-            val increment = if (incrementMode) value else 0
-            IntegralService.serviceInstance?.startTask {
-                runLoop(loginId, reachTarget, incrementMode, increment)
-            }
+            IntegralService.serviceInstance?.startAccount(acc)
+            renderState()
         }, SERVICE_START_DELAY_MS)
     }
 
-    private fun stopExecution() {
-        stopRequested = true
-        isRunning = false
-        // 立即把服务运行状态置为 false，让按钮/输入框马上恢复可操作
-        // （服务真正停止是异步的，不提前置位会导致 UI 仍停留在运行中状态）
-        IntegralService.isServiceRunning = false
-
-        // 取消服务中的任务
-        IntegralService.serviceInstance?.cancelTask()
-        
-        // 停止前台服务
-        val serviceIntent = Intent(this, IntegralService::class.java).apply {
-            action = IntegralService.ACTION_STOP
-        }
-        startService(serviceIntent)
-
-        updateStatus("⛔ 已手动停止")
-        appendLog("⛔ 已手动停止")
-        updateButtonState()
+    private fun stopSelectedAccount() {
+        val acc = selectedAccount ?: return
+        IntegralService.serviceInstance?.stopAccount(acc.id)
+        renderState()
     }
 
-    private suspend fun runLoop(loginId: String, reachTarget: Int, incrementMode: Boolean, increment: Int) {
-        val config = ConfigManager(this)
-        val submitUrl = config.getSubmitUrl()
-        val queryUrl = config.getQueryUrl()
-        val maxAttempts = config.getMaxAttempts()
-        val delayMin = config.getDelayMin()
-        val delayMax = config.getDelayMax()
-        val integralType = config.getIntegralType()
+    // ---------------- 状态渲染 ----------------
 
-        appendLog("工号：$loginId")
-        appendLog("正在查询当前积分...")
-
-        // 查询当前积分
-        var currentScore = try {
-            networkManager.queryIntegral(loginId, queryUrl)
-        } catch (e: Exception) {
-            appendLog("❌ 初始查询失败：${e.message}")
-            updateStatus("❌ 查询失败")
-            stopService()
+    private fun renderState() {
+        val acc = selectedAccount ?: run {
+            updateButtons(running = false)
             return
         }
-
-        appendLog("✅ 当前积分：$currentScore")
-
-        // 计算有效目标：增加积分模式 = 当前分 + 增量；达标模式 = 输入的绝对值
-        val targetScore = if (incrementMode) {
-            val t = currentScore + increment
-            appendLog("🎯 增加积分模式：目标 = 当前 $currentScore + 增加 $increment = $t")
-            t
+        val state = IntegralService.tasks[acc.id]
+        if (state != null && state.isRunning) {
+            binding.tvStatus.text = state.statusText
+            binding.tvLog.text = state.logContent
+            updateButtons(running = true)
         } else {
-            appendLog("目标积分：$reachTarget")
-            reachTarget
-        }
-
-        // 检查是否已达标
-        if (currentScore >= targetScore) {
-            appendLog("✅ 已达标！当前 $currentScore >= 目标 $targetScore")
-            updateStatus("✅ 已达标 $currentScore")
-            stopService()
-            return
-        }
-
-        appendLog("开始循环提交（间隔 ${delayMin}-${delayMax} 秒，最多 $maxAttempts 次）\n")
-
-        var attempt = 1
-
-        while (coroutineContext.isActive && currentScore < targetScore && attempt <= maxAttempts && !stopRequested) {
-            val delaySeconds = (delayMin..delayMax).random()
-
-            // 更新服务状态（供 Activity 恢复时读取）
-            IntegralService.currentAttempt = attempt
-            IntegralService.maxAttempts = maxAttempts
-            IntegralService.currentScore = currentScore
-
-            appendLog("─── 第 $attempt 次（剩余 ${maxAttempts - attempt} 次）───")
-            appendLog("⏳ 等待 $delaySeconds 秒...")
-            updateStatus("⏳ 第 $attempt 次 等待 ${delaySeconds}s ｜ 当前积分 $currentScore")
-
-            // 倒计时等待（每秒检查一次停止请求，动态显示剩余秒数）
-            var waited = 0
-            while (coroutineContext.isActive && waited < delaySeconds && !stopRequested) {
-                delay(1000)
-                waited++
-                val remaining = delaySeconds - waited
-                IntegralService.remainingSeconds = remaining
-                updateStatus("⏳ 第 $attempt 次 等待 ${remaining}s ｜ 当前积分 $currentScore")
+            binding.tvStatus.text = "⏸ 待命中"
+            // 停止后保留上一次日志内容，便于查看结果
+            if (state != null && state.logContent.isNotEmpty()) {
+                binding.tvLog.text = state.logContent
+            } else {
+                binding.tvLog.text = "等待执行..."
             }
-
-            if (!coroutineContext.isActive || stopRequested) break
-
-            IntegralService.remainingSeconds = 0
-            updateStatus("🔄 第 $attempt 次 执行中 ｜ 当前积分 $currentScore")
-
-            try {
-                // 检查是否需要跨日重置
-                if (config.needDayReset()) {
-                    appendLog("📅 日期变更，重置资源ID...")
-                    config.initResourceId()
-                }
-
-                // 获取当前资源ID
-                var resourceId = config.getResourceId()
-                if (resourceId == -1) {
-                    config.initResourceId()
-                    resourceId = config.getResourceId()
-                }
-
-                // 提交积分
-                val newResourceId = networkManager.submitIntegral(
-                    loginId = loginId,
-                    integralType = integralType,
-                    submitUrl = submitUrl,
-                    resourceId = resourceId
-                )
-
-                // 查询新积分
-                val newScore = networkManager.queryIntegral(loginId, queryUrl)
-
-                // 保存配置
-                config.saveResourceId(newResourceId)
-                config.saveLastDate(ConfigManager.DATE_FORMAT.format(Date()))
-
-                // 检查积分是否增长
-                if (newScore <= currentScore) {
-                    appendLog("⚠ 积分未增长 ($newScore)，可能已达上限")
-                    currentScore = newScore
-                    IntegralService.currentScore = currentScore
-                    updateStatus("⚠ 积分未增长 ｜ 当前积分 $currentScore")
-                    attempt++
-                    continue
-                }
-
-                currentScore = newScore
-                IntegralService.currentScore = currentScore
-                appendLog("📈 当前积分：$currentScore")
-                updateStatus("📈 当前积分：$currentScore")
-
-                // 检查是否达标
-                if (currentScore >= targetScore) {
-                    appendLog("\n🎉 达标！当前 $currentScore >= 目标 $targetScore")
-                    updateStatus("🎉 已达标 $currentScore")
-                    stopService()
-                    return
-                }
-
-            } catch (e: CancellationException) {
-                throw e
-            } catch (e: Exception) {
-                appendLog("❌ 执行失败：${e.message}")
-                attempt++
-                continue
-            }
-
-            attempt++
+            updateButtons(running = false)
         }
-
-        // 循环结束
-        when {
-            stopRequested -> {
-                appendLog("⛔ 已停止")
-            }
-            attempt > maxAttempts -> {
-                appendLog("\n⚠ 已达到最大次数 $maxAttempts，未达标（当前：$currentScore / 目标：$targetScore）")
-            }
-        }
-        updateStatus("⏸ 已停止")
-        stopService()
+        // 同步账号切换器选中项（例如其他途径切换了账号）
+        refreshSpinnerSelection()
     }
 
-    private fun stopService() {
-        isRunning = false
-        // 立即把服务运行状态置为 false，让当前可见实例的按钮马上恢复
-        IntegralService.isServiceRunning = false
-        currentInstance?.updateButtonStateSafe(false)
-        updateButtonState()
-        
-        val serviceIntent = Intent(this, IntegralService::class.java).apply {
-            action = IntegralService.ACTION_STOP
-        }
-        startService(serviceIntent)
-    }
-
-    private fun updateButtonState() {
-        val running = IntegralService.isServiceRunning
-        currentInstance?.updateButtonStateSafe(running)
-    }
-
-    private fun updateButtonStateSafe(running: Boolean) {
-        if (isFinishing || isDestroyed) return
+    private fun updateButtons(running: Boolean) {
         runOnUiThread {
             binding.btnStart.isEnabled = !running
             binding.btnStart.alpha = if (running) 0.4f else 1.0f
@@ -436,55 +291,79 @@ class MainActivity : AppCompatActivity() {
             binding.btnStop.alpha = if (running) 1.0f else 0.4f
             binding.inputLoginId.isEnabled = !running
             binding.inputTargetScore.isEnabled = !running
+            binding.modeReach.isEnabled = !running
+            binding.modeIncrement.isEnabled = !running
         }
     }
 
-    private fun updateStatus(status: String) {
-        // 同步更新服务状态（即使界面销毁，也可以保留状态）
-        IntegralService.statusText = status
-        // 实时刷新只打到当前存活的 Activity 实例，避免打到已销毁的旧实例
-        currentInstance?.setStatusTextSafe(status)
-    }
+    // ---------------- 添加 / 删除账号 ----------------
 
-    private fun setStatusTextSafe(status: String) {
-        if (isFinishing || isDestroyed) return
-        runOnUiThread {
-            binding.tvStatus.text = status
+    private fun showAddAccountDialog() {
+        val editText = android.widget.EditText(this).apply {
+            hint = "请输入工号"
+            inputType = android.text.InputType.TYPE_CLASS_TEXT
         }
-    }
-
-    private fun appendLog(message: String) {
-        currentInstance?.appendLogSafe(message)
-    }
-
-    private fun appendLogSafe(message: String) {
-        if (isFinishing || isDestroyed) return
-        runOnUiThread {
-            val currentText = binding.tvLog.text.toString()
-            val newText = if (currentText.isEmpty() || currentText == "等待执行...") {
-                message
-            } else {
-                "$currentText\n$message"
+        AlertDialog.Builder(this)
+            .setTitle("添加账号")
+            .setView(editText)
+            .setPositiveButton("确定") { _, _ ->
+                val loginId = editText.text.toString().trim()
+                val acc = Account(
+                    id = "acc_${System.currentTimeMillis()}",
+                    loginId = loginId,
+                    mode = "reach",
+                    target = 100
+                )
+                accounts.add(acc)
+                accountManager.saveAccounts(accounts)
+                selectedAccount = acc
+                accountManager.setCurrentAccountId(acc.id)
+                IntegralService.selectedAccountId = acc.id
+                refreshAccountSpinner()
+                binding.accountSpinner.setSelection(accounts.indexOfFirst { it.id == acc.id })
+                bindInputs()
+                renderState()
             }
-            // 限制日志行数
-            val lines = newText.split("\n")
-            val limitedLines = if (lines.size > MAX_LOG_LINES) lines.takeLast(MAX_LOG_LINES) else lines
-            val limitedText = limitedLines.joinToString("\n")
-            // 同步到静态缓存，供 Activity 重建后恢复
-            IntegralService.logContent = limitedText
-            binding.tvLog.text = limitedText
+            .setNegativeButton("取消", null)
+            .show()
+    }
+
+    private fun showDeleteAccountDialog() {
+        val acc = selectedAccount ?: return
+        val running = IntegralService.tasks[acc.id]?.isRunning == true
+        if (running) {
+            Toast.makeText(this, "该账号正在运行，请先停止", Toast.LENGTH_SHORT).show()
+            return
         }
+        AlertDialog.Builder(this)
+            .setTitle("删除账号")
+            .setMessage("确定删除账号「${if (acc.loginId.isNotEmpty()) acc.loginId else "未设置工号"}」？")
+            .setPositiveButton("删除") { _, _ ->
+                accountManager.removeAccount(acc.id)
+                accounts.removeAll { it.id == acc.id }
+                selectedAccount = accounts.firstOrNull()
+                selectedAccount?.let { accountManager.setCurrentAccountId(it.id) }
+                refreshAccountSpinner()
+                bindInputs()
+                renderState()
+            }
+            .setNegativeButton("取消", null)
+            .show()
     }
 
-    private fun clearLog() {
-        IntegralService.logContent = ""
-        currentInstance?.clearLogSafe()
-    }
+    // ---------------- 权限 ----------------
 
-    private fun clearLogSafe() {
-        if (isFinishing || isDestroyed) return
-        runOnUiThread {
-            binding.tvLog.text = ""
+    private fun requestPermissions() {
+        val permissions = mutableListOf<String>()
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            if (ActivityCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS)
+                != PackageManager.PERMISSION_GRANTED
+            ) {
+                permissions.add(Manifest.permission.POST_NOTIFICATIONS)
+            }
+        }
+        if (permissions.isNotEmpty()) {
+            ActivityCompat.requestPermissions(this, permissions.toTypedArray(), PERMISSION_REQUEST_CODE)
         }
     }
 }
