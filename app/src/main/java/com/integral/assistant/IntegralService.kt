@@ -82,16 +82,19 @@ class IntegralService : Service() {
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         when (intent?.action) {
             ACTION_START -> {
-                ensureForeground()
                 // 携带账号信息启动（前台服务启动后可能延迟就绪，改用 Intent 直驱，避免盲等待）
                 val accJson = intent.getStringExtra(EXTRA_ACCOUNT)
-                if (accJson != null) {
-                    try {
-                        val acc = Gson().fromJson(accJson, Account::class.java)
-                        startAccount(acc)
-                    } catch (e: Exception) {
-                        // 解析失败忽略
-                    }
+                val acc = try {
+                    accJson?.let { Gson().fromJson(it, Account::class.java) }
+                } catch (e: Exception) {
+                    null
+                }
+                if (acc != null) {
+                    ensureForeground()
+                    startAccount(acc)
+                } else {
+                    // 缺少有效账号信息时不悬挂前台服务，直接自停释放资源
+                    stopSelf()
                 }
             }
             ACTION_STOP -> {
@@ -178,6 +181,12 @@ class IntegralService : Service() {
                 return@forEach
             }
             launchJob(acc, state)
+        }
+        // 若恢复后没有任何真正在运行的任务（如账号已从存储中删除），避免前台服务悬挂
+        if (tasks.values.none { it.isRunning }) {
+            releaseWakeLock()
+            stopForeground(STOP_FOREGROUND_REMOVE)
+            stopSelf()
         }
     }
 
