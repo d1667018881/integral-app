@@ -241,6 +241,12 @@ class MainActivity : AppCompatActivity() {
         acc.target = v
         accountManager.saveAccounts(accounts)
 
+        // 提交/查询 URL 为空时先提示，避免空跑报错
+        if (configManager.getSubmitUrl().isBlank() || configManager.getQueryUrl().isBlank()) {
+            Toast.makeText(this, "请先在设置中填写提交/查询 URL", Toast.LENGTH_SHORT).show()
+            return
+        }
+
         // 启动/确保前台服务，再启动该账号任务
         val serviceIntent = Intent(this, IntegralService::class.java).apply {
             action = IntegralService.ACTION_START

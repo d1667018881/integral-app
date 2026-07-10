@@ -2,6 +2,7 @@ package com.integral.assistant
 
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
 import okhttp3.FormBody
 import okhttp3.OkHttpClient
@@ -18,6 +19,25 @@ import com.google.gson.reflect.TypeToken
 import java.io.IOException
 import android.util.Base64
 import java.nio.charset.StandardCharsets
+
+/**
+ * 可取消的 OkHttp 调用：协程被取消时同步取消底层 Call，
+ * 使“停止”能在网络请求进行中立即生效（而非等待 readTimeout 超时）。
+ */
+private suspend fun okhttp3.Call.await(): okhttp3.Response = suspendCancellableCoroutine { cont ->
+    val call = this@await
+    // 协程取消时立即取消底层 HTTP 请求，使“停止”能在网络进行中立即生效
+    // 注意：kotlinx.coroutines 1.7.3 的 resume/resumeWithException 存在带 onCancellation 参数的重载，
+    // 为避免歧义，统一用 resumeWith(Result.*)，且 invokeOnCancellation 需声明 Throwable 形参以匹配 (Throwable) -> Unit 签名
+    cont.invokeOnCancellation { _ -> call.cancel() }
+    try {
+        val response = call.execute()
+        cont.resumeWith(Result.success(response))
+    } catch (e: Throwable) {
+        if (cont.isCancelled) return@suspendCancellableCoroutine
+        cont.resumeWith(Result.failure(e))
+    }
+}
 
 /**
  * 网络请求管理器 - 对应另一个 AI 的 safe_post 函数
@@ -72,7 +92,7 @@ object NetworkManager {
                         .header("User-Agent", "Mozilla/5.0 (Linux; Android 16; Pixel 9 Pro Build/BP2A.250305.019; wv) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/133.0.6943.137 Mobile Safari/537.36 whatyApp whatyApiApp")
                         .build()
 
-                    val response = client.newCall(request).execute()
+                    val response = client.newCall(request).await()
                     response.use {
                         // HTTP 4xx/5xx 也视为失败，触发重试逻辑
                         if (!it.isSuccessful) throw IOException("HTTP ${it.code}")
@@ -107,7 +127,7 @@ object NetworkManager {
                     .header("User-Agent", "Mozilla/5.0 (Linux; Android 10; SM-G960U) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.120 Mobile Safari/537.36")
                     .build()
 
-                val response = client.newCall(request).execute()
+                val response = client.newCall(request).await()
                 val html = response.use { it.body?.string() } ?: return@withContext null
 
                 // 按优先级尝试多种提取策略
