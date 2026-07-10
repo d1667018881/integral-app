@@ -1,5 +1,6 @@
 package com.integral.assistant
 
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.suspendCancellableCoroutine
@@ -132,6 +133,9 @@ object NetworkManager {
 
                 // 按优先级尝试多种提取策略
                 extractJsonFromHtml(html)
+            } catch (e: CancellationException) {
+                // 不吞掉取消，保持协程取消语义（离开页面等场景可干净退出）
+                throw e
             } catch (e: Exception) {
                 null
             }
