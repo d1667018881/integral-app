@@ -11,8 +11,8 @@ android {
         applicationId = "com.integral.assistant"
         minSdk = 24
         targetSdk = 34
-        versionCode = 32
-        versionName = "1.31"
+        versionCode = 33
+        versionName = "1.32"
     }
 
     signingConfigs {
