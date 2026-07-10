@@ -101,7 +101,9 @@ class MainActivity : AppCompatActivity() {
 
     private fun refreshAccountSpinner() {
         val labels = accounts.map { acc ->
-            if (acc.loginId.isNotEmpty()) acc.loginId else "未设置工号"
+            val base = if (acc.loginId.isNotEmpty()) acc.loginId else "未设置工号"
+            val note = acc.note.orEmpty().trim()
+            if (note.isNotEmpty()) "$base（$note）" else base
         }.toMutableList()
         labels.add(ADD_ACCOUNT_TAG)
         val adapter = ArrayAdapter(this, android.R.layout.simple_spinner_item, labels)
@@ -184,6 +186,18 @@ class MainActivity : AppCompatActivity() {
             override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
         })
 
+        // 备注输入：实时保存（空则存 null，便于下拉列表判断）
+        binding.inputNote.addTextChangedListener(object : TextWatcher {
+            override fun afterTextChanged(s: Editable?) {
+                if (isBinding || selectedAccount == null) return
+                val note = s?.toString()?.trim()
+                selectedAccount!!.note = if (note.isNullOrEmpty()) null else note
+                accountManager.saveAccounts(accounts)
+            }
+            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
+            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
+        })
+
         // 模式切换
         binding.modeGroup.setOnCheckedChangeListener { _, checkedId ->
             if (selectedAccount == null) return@setOnCheckedChangeListener
@@ -209,6 +223,8 @@ class MainActivity : AppCompatActivity() {
         updateTargetLabel(acc.mode)
         binding.inputTargetScore.setText(acc.target.toString())
         binding.inputTargetScore.setSelection(acc.target.toString().length)
+        binding.inputNote.setText(acc.note.orEmpty())
+        binding.inputNote.setSelection(acc.note.orEmpty().length)
         isBinding = false
     }
 
@@ -323,20 +339,32 @@ class MainActivity : AppCompatActivity() {
     // ---------------- 添加 / 删除账号 ----------------
 
     private fun showAddAccountDialog() {
-        val editText = android.widget.EditText(this).apply {
+        val loginEdit = android.widget.EditText(this).apply {
             hint = "请输入工号"
             inputType = android.text.InputType.TYPE_CLASS_TEXT
         }
+        val noteEdit = android.widget.EditText(this).apply {
+            hint = "备注（选填，便于区分账号）"
+            inputType = android.text.InputType.TYPE_CLASS_TEXT
+        }
+        val container = android.widget.LinearLayout(this).apply {
+            orientation = android.widget.LinearLayout.VERTICAL
+            setPadding(48, 24, 48, 8)
+            addView(loginEdit)
+            addView(noteEdit)
+        }
         AlertDialog.Builder(this)
             .setTitle("添加账号")
-            .setView(editText)
+            .setView(container)
             .setPositiveButton("确定") { _, _ ->
-                val loginId = editText.text.toString().trim()
+                val loginId = loginEdit.text.toString().trim()
+                val note = noteEdit.text.toString().trim()
                 val acc = Account(
                     id = "acc_${UUID.randomUUID()}",
                     loginId = loginId,
                     mode = "reach",
-                    target = 100
+                    target = 100,
+                    note = if (note.isEmpty()) null else note
                 )
                 accounts.add(acc)
                 accountManager.saveAccounts(accounts)
@@ -362,7 +390,11 @@ class MainActivity : AppCompatActivity() {
         }
         AlertDialog.Builder(this)
             .setTitle("删除账号")
-            .setMessage("确定删除账号「${if (acc.loginId.isNotEmpty()) acc.loginId else "未设置工号"}」？")
+            .setMessage("确定删除账号「${run {
+                val base = if (acc.loginId.isNotEmpty()) acc.loginId else "未设置工号"
+                val note = acc.note.orEmpty().trim()
+                if (note.isNotEmpty()) "$base（$note）" else base
+            }}」？")
             .setPositiveButton("删除") { _, _ ->
                 accountManager.removeAccount(acc.id)
                 accounts.removeAll { it.id == acc.id }

@@ -16,7 +16,8 @@ data class Account(
     val id: String,
     var loginId: String,
     var mode: String,        // "reach"=达标模式, "increment"=增加积分模式
-    var target: Int          // 达标模式=目标积分; 增加积分模式=要增加的分数
+    var target: Int,         // 达标模式=目标积分; 增加积分模式=要增加的分数
+    var note: String? = null // 备注：便于多账号区分（旧数据无此字段时为 null，展示处用 orEmpty() 兜底）
 )
 
 class AccountManager(context: Context) {
