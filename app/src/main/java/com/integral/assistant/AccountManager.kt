@@ -77,11 +77,11 @@ class AccountManager(context: Context) {
 
     // ---- 每个账号独立的资源ID / 日期 ----
     // 资源ID 模型：「随机起点 + 每次随机 +n」
-    //   - 首次初始化：起点在 [RESOURCE_ID_START_MIN, RESOURCE_ID_START_MAX] 间随机取一个
+    //   - 起点：每次跨天重置或首次初始化时，在 [RESOURCE_ID_START_MIN, RESOURCE_ID_START_MAX] 间随机取一个
     //   - 每次成功提交后：resourceId = 当前值 + 随机步长[STEP_MIN, STEP_MAX]
-    // 因为步长恒为正（>=STEP_MIN=1），序列严格单调递增，天然保证「绝对不重复」；
-    // 步长随机又消除了 +1 的单调性，无规律可循。后端不限制范围，可一路增长。
-    // 初始化后不再因跨天重置（避免打断单调递增序列），仅在从未初始化（无 base）时才初始化。
+    // 因为步长恒为正（>=STEP_MIN=1），当天内序列严格单调递增，天然保证「当天不重复」；
+    // 步长随机又消除了 +1 的单调性，无规律可循；跨天再换一个新随机起点，进一步去规律。
+    // 每个账号独立存储各自的 base 与日期，互不影响、各自随机。
 
     private fun resBaseKey(id: String) = "resbase_$id"
 
@@ -107,9 +107,11 @@ class AccountManager(context: Context) {
         resPrefs.edit().putString("date_$accountId", date).apply()
     }
 
-    /** 仅在从未初始化（无 base）时需要重置，避免打断单调递增序列 */
+    /** 日期变更（跨天）或从未初始化（无 base）时，都需要重置起点（重新随机） */
     fun needDayReset(accountId: String): Boolean {
-        return !resPrefs.contains(resBaseKey(accountId))
+        val last = getLastDate(accountId)
+        val today = DATE_FORMAT.format(Date())
+        return last != today || !resPrefs.contains(resBaseKey(accountId))
     }
 
     fun initResourceId(accountId: String) {
