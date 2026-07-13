@@ -416,11 +416,11 @@ object NetworkManager {
             "loginId" to loginId,
             "siteCode" to siteCode,
             "integralType" to integralType,
-            "resourceId" to (resourceId + 1).toString()
+            "resourceId" to resourceId.toString()
         )
 
         safePost(submitUrl, data)
-        return resourceId + 1
+        return resourceId
     }
 
     /**

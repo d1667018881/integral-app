@@ -63,19 +63,44 @@ class AccountManager(context: Context) {
     fun removeAccount(id: String) {
         val list = getAccounts().filter { it.id != id }.toMutableList()
         saveAccounts(list)
-        // 清理该账号的资源数据
+        // 清理该账号的资源数据（含旧格式 res_ 残留）
         resPrefs.edit()
-            .remove("res_$id")
+            .remove(resListKey(id))
+            .remove(resPtrKey(id))
             .remove("date_$id")
+            .remove("res_$id")
             .apply()
     }
 
     // ---- 每个账号独立的资源ID / 日期 ----
+    // 资源ID 采用「随机排列（Fisher-Yates 洗牌）」：把 1..RESOURCE_ID_RANGE 打乱后
+    // 依次取用。相比原来的「随机起点 + 每次 +1」，既保证单个排列周期内绝对不重复，
+    // 又消除了 +1 的单调性（顺序随机、无规律）。跨天或取完则重新洗牌。
 
-    fun getResourceId(accountId: String): Int = resPrefs.getInt("res_$accountId", -1)
+    private fun resListKey(id: String) = "reslist_$id"
+    private fun resPtrKey(id: String) = "resptr_$id"
 
-    fun saveResourceId(accountId: String, id: Int) {
-        resPrefs.edit().putInt("res_$accountId", id).apply()
+    /** 返回当前指针处的资源ID；未初始化或越界返回 -1（调用方据此重新初始化） */
+    fun getResourceId(accountId: String): Int {
+        val json = resPrefs.getString(resListKey(accountId), null) ?: return -1
+        val ptr = resPrefs.getInt(resPtrKey(accountId), 0)
+        return try {
+            val list = gson.fromJson<List<Int>>(json, object : TypeToken<List<Int>>() {}.type)
+            if (ptr < 0 || ptr >= list.size) -1 else list[ptr]
+        } catch (e: Exception) {
+            -1
+        }
+    }
+
+    /** 用掉当前资源ID后推进指针；到末尾则重新洗牌（单天提交超范围才会触发） */
+    fun advanceResourceId(accountId: String) {
+        val ptr = resPrefs.getInt(resPtrKey(accountId), 0)
+        val next = ptr + 1
+        if (next >= RESOURCE_ID_RANGE) {
+            initResourceId(accountId)
+        } else {
+            resPrefs.edit().putInt(resPtrKey(accountId), next).apply()
+        }
     }
 
     fun getLastDate(accountId: String): String = resPrefs.getString("date_$accountId", "") ?: ""
@@ -87,13 +112,17 @@ class AccountManager(context: Context) {
     fun needDayReset(accountId: String): Boolean {
         val last = getLastDate(accountId)
         val today = DATE_FORMAT.format(Date())
-        return last != today
+        // 日期变更，或尚未初始化（无排列数据），都需要重置
+        return last != today || !resPrefs.contains(resListKey(accountId))
     }
 
     fun initResourceId(accountId: String) {
-        val randomId = (1..RESOURCE_ID_RANGE).random()
+        val list = (1..RESOURCE_ID_RANGE).toList().shuffled()
         val today = DATE_FORMAT.format(Date())
-        saveResourceId(accountId, randomId)
-        saveLastDate(accountId, today)
+        resPrefs.edit()
+            .putString(resListKey(accountId), gson.toJson(list))
+            .putInt(resPtrKey(accountId), 0)
+            .putString("date_$accountId", today)
+            .apply()
     }
 }

@@ -297,10 +297,11 @@ class IntegralService : Service() {
                     resourceId = am.getResourceId(account.id)
                 }
 
-                val newResourceId = net.submitIntegral(loginId, integralType, submitUrl, resourceId)
+                // resourceId 来自每账号的随机排列（洗牌），绝对不重复且无 +1 规律
+                net.submitIntegral(loginId, integralType, submitUrl, resourceId)
                 val newScore = net.queryIntegral(loginId, queryUrl)
 
-                am.saveResourceId(account.id, newResourceId)
+                am.advanceResourceId(account.id)
                 am.saveLastDate(account.id, AccountManager.DATE_FORMAT.format(Date()))
 
                 if (newScore <= currentScore) {
