@@ -296,8 +296,15 @@ class IntegralService : Service() {
                     am.initResourceId(account.id)
                     resourceId = am.getResourceId(account.id)
                 }
+                // 防御：极端情况下（如存储损坏）仍未取到有效资源ID，跳过本次提交，避免向后端传异常值
+                if (resourceId <= 0) {
+                    log("⚠ 资源ID无效，跳过本次提交")
+                    attempt++
+                    continue
+                }
 
-                // resourceId 来自每账号的随机排列（洗牌），绝对不重复且无 +1 规律
+                // resourceId 来自每账号的随机排列（洗牌）+ 当日已用去重，绝对不重复且无 +1 规律
+                log("📤 提交 resourceId=$resourceId")
                 net.submitIntegral(loginId, integralType, submitUrl, resourceId)
                 val newScore = net.queryIntegral(loginId, queryUrl)
 

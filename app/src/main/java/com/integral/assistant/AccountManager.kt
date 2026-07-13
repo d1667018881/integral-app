@@ -67,6 +67,7 @@ class AccountManager(context: Context) {
         resPrefs.edit()
             .remove(resListKey(id))
             .remove(resPtrKey(id))
+            .remove(resUsedKey(id))
             .remove("date_$id")
             .remove("res_$id")
             .apply()
@@ -79,6 +80,7 @@ class AccountManager(context: Context) {
 
     private fun resListKey(id: String) = "reslist_$id"
     private fun resPtrKey(id: String) = "resptr_$id"
+    private fun resUsedKey(id: String) = "resused_$id"
 
     /** 返回当前指针处的资源ID；未初始化或越界返回 -1（调用方据此重新初始化） */
     fun getResourceId(accountId: String): Int {
@@ -92,15 +94,42 @@ class AccountManager(context: Context) {
         }
     }
 
-    /** 用掉当前资源ID后推进指针；到末尾则重新洗牌（单天提交超范围才会触发） */
-    fun advanceResourceId(accountId: String) {
-        val ptr = resPrefs.getInt(resPtrKey(accountId), 0)
-        val next = ptr + 1
-        if (next >= RESOURCE_ID_RANGE) {
-            initResourceId(accountId)
-        } else {
-            resPrefs.edit().putInt(resPtrKey(accountId), next).apply()
+    private fun getUsedSet(accountId: String): Set<Int> {
+        val json = resPrefs.getString(resUsedKey(accountId), null) ?: return emptySet()
+        return try {
+            gson.fromJson(json, object : TypeToken<Set<Int>>() {}.type)
+        } catch (e: Exception) {
+            emptySet()
         }
+    }
+
+    /**
+     * 用掉当前资源ID后推进：把当前值记入「当日已用集合」，指针跳过已用值。
+     * 即使某天提交次数超过范围、触发重新洗牌，也不会与当天已用过的值重复；
+     * 仅当 1..RANGE 全部用尽（单日物理极限）才清空重洗。
+     */
+    fun advanceResourceId(accountId: String) {
+        val json = resPrefs.getString(resListKey(accountId), null) ?: run { initResourceId(accountId); return }
+        val list = try {
+            gson.fromJson<List<Int>>(json, object : TypeToken<List<Int>>() {}.type)
+        } catch (e: Exception) { initResourceId(accountId); return }
+        var ptr = resPrefs.getInt(resPtrKey(accountId), 0)
+        if (ptr < 0 || ptr >= list.size) { initResourceId(accountId); return }
+
+        val used = getUsedSet(accountId).toMutableSet().apply { add(list[ptr]) }
+        var next = ptr + 1
+        while (next < list.size && list[next] in used) next++
+
+        val editor = resPrefs.edit().putString(resUsedKey(accountId), gson.toJson(used))
+        if (next >= list.size) {
+            // 1..RANGE 已全部用过（单日极罕见），重新洗牌并清空已用集合后继续
+            val newList = (1..RESOURCE_ID_RANGE).toList().shuffled()
+            editor.putString(resListKey(accountId), gson.toJson(newList))
+                .putInt(resPtrKey(accountId), 0)
+        } else {
+            editor.putInt(resPtrKey(accountId), next)
+        }
+        editor.apply()
     }
 
     fun getLastDate(accountId: String): String = resPrefs.getString("date_$accountId", "") ?: ""
@@ -122,6 +151,7 @@ class AccountManager(context: Context) {
         resPrefs.edit()
             .putString(resListKey(accountId), gson.toJson(list))
             .putInt(resPtrKey(accountId), 0)
+            .putString(resUsedKey(accountId), gson.toJson(emptySet<Int>()))
             .putString("date_$accountId", today)
             .apply()
     }
