@@ -353,7 +353,9 @@ class MainActivity : AppCompatActivity() {
             addView(loginEdit)
             addView(noteEdit)
         }
-        AlertDialog.Builder(this)
+        // 打开对话框前选中的真实账号位置（用于关闭后复位）
+        val prevIndex = accounts.indexOfFirst { it.id == selectedAccount?.id }
+        val dialog = AlertDialog.Builder(this)
             .setTitle("添加账号")
             .setView(container)
             .setPositiveButton("确定") { _, _ ->
@@ -378,7 +380,17 @@ class MainActivity : AppCompatActivity() {
                 renderState()
             }
             .setNegativeButton("取消", null)
-            .show()
+            .create()
+        // 对话框关闭后（取消按钮或系统返回键都会触发 dismiss），若 Spinner 仍停在
+        // 「添加账号」项，复位回之前的真实账号；否则再次点「添加账号」时选中项
+        // 未变化，onItemSelected 不会触发，导致“点了没反应”
+        dialog.setOnDismissListener {
+            val cur = binding.accountSpinner.selectedItemPosition
+            if (cur >= accounts.size && prevIndex >= 0) {
+                binding.accountSpinner.setSelection(prevIndex)
+            }
+        }
+        dialog.show()
     }
 
     private fun showDeleteAccountDialog() {
